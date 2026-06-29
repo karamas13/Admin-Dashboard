@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import AppointmentDetailsPanel from '@/components/appointment-details';
 import CreateAppointmentModal from '@/components/create-appointment-modal';
 import { Appointment, AppointmentStatus } from '@/types';
+import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
 
-// Mock Data for immediate visual presentation matching UI mockup
+
+// Mock Data - Προσαρμοσμένα ώστε να έχουν ημερομηνίες
 const INITIAL_APPOINTMENTS: Appointment[] = [
   { appointment_id: '1', caller_name: 'Μαρία Παπαδοπούλου', phone: '694 123 4567', appointment_type_code: 'Καθαρισμός', urgency_code: 'normal', start_at: '2026-06-19T09:00:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
   { appointment_id: '2', caller_name: 'Κώστας Ιωάννου', phone: '697 987 6543', appointment_type_code: 'Έλεγχος', urgency_code: 'normal', start_at: '2026-06-19T09:30:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
@@ -22,21 +24,72 @@ const TIME_SLOTS = [
   '17:00', '17:30', '18:00'
 ];
 
-const DAYS_OF_WEEK = [
-  { name: 'Δευτέρα', date: '15/06' },
-  { name: 'Τρίτη', date: '16/06' },
-  { name: 'Τετάρτη', date: '17/06' },
-  { name: 'Πέμπτη', date: '18/06' },
-  { name: 'Παρασκευή', date: '19/06' },
-  { name: 'Σάββατο', date: '20/06' },
-  { name: 'Κυριακή', date: '21/06' }
-];
-
 export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // 1. Δυναμικό State για την τρέχουσα ημερομηνία (ξεκινάει από το Mock Point 19/06/2026 για να βλέπεις τα δεδομένα σου)
+  const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-06-19'));
+
+  // Helper: Μορφοποίηση ημερομηνίας σε YYYY-MM-DD για φιλτράρισμα
+  const formatDateString = (date: Date) => {
+    const offset = date.getTimezoneOffset();
+    const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return adjustedDate.toISOString().split('T')[0];
+  };
+
+  // 2. Υπολογισμός των ημερών της τρέχουσας εβδομάδας (Δευτέρα έως Κυριακή)
+  const getDaysOfWeek = (anchorDate: Date) => {
+    const currentDay = anchorDate.getDay();
+    // Στην JS η Κυριακή είναι 0. Μετατρέπουμε ώστε η Δευτέρα να είναι η αρχή (0) και η Κυριακή το (6)
+    const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
+    
+    const monday = new Date(anchorDate);
+    monday.setDate(anchorDate.getDate() - dayIndex);
+
+    const daysName = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή'];
+    
+    return daysName.map((name, index) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      return {
+        name,
+        dateObject: d,
+        formattedDate: d.toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' }),
+        isoString: formatDateString(d)
+      };
+    });
+  };
+
+  const daysOfWeek = getDaysOfWeek(currentDate);
+
+  // 3. Συναρτήσεις Πλοήγησης (Navigation)
+  const handlePrev = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'day') {
+      newDate.setDate(currentDate.getDate() - 1);
+    } else {
+      newDate.setDate(currentDate.getDate() - 7);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const handleNext = () => {
+    const newDate = new Date(currentDate);
+    if (viewMode === 'day') {
+      newDate.setDate(currentDate.getDate() + 1);
+    } else {
+      newDate.setDate(currentDate.getDate() + 7);
+    }
+    setCurrentDate(newDate);
+  };
+
+  const handleToday = () => {
+    // Επιστροφή στην αρχική ημερομηνία των mock δεδομένων
+    setCurrentDate(new Date('2026-06-19'));
+  };
 
   const getStatusBadgeStyles = (status: AppointmentStatus) => {
     switch (status) {
@@ -77,9 +130,36 @@ export default function AppointmentsPage() {
           </button>
         </div>
 
+        {/* 4. Δυναμικό Navigation UI */}
         <div className="flex items-center gap-3">
-          <div className="text-sm font-semibold text-slate-800">Πέμπτη, 19 Ιουνίου 2026</div>
-          <button className="px-3 py-1.5 text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg">Σήμερα</button>
+          <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
+            <button 
+              onClick={handlePrev}
+              className="flex items-center justify-center p-1.5 px-3 text-slate-600 hover:bg-slate-50 border-r border-slate-200 transition-colors text-xs font-bold"
+            >
+              <BsChevronBarLeft className='text-xl mr-1'/>Προηγούμενη Εβδομάδα
+            </button>
+            <button 
+              onClick={handleNext}
+              className="flex items-center justify-center p-1.5 px-3 text-slate-600 hover:bg-slate-50 transition-colors text-xs font-bold"
+            >
+              Επόμενη Εβδομάδα<BsChevronBarRight className='text-xl ml-1'/>
+            </button>
+          </div>
+
+          <div className="text-sm font-semibold text-slate-800 min-w-45 text-center capitalize">
+            {viewMode === 'day' 
+              ? currentDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+              : `Εβδομάδα: ${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
+            }
+          </div>
+
+          <button 
+            onClick={handleToday}
+            className="px-3 py-1.5 text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg"
+          >
+            Αρχική (19/06)
+          </button>
           <button 
             onClick={() => setIsCreateOpen(true)}
             className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
@@ -91,11 +171,14 @@ export default function AppointmentsPage() {
 
       {/* Summary KPI Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* ... (Οι KPI κάρτες παραμένουν ίδιες) ... */}
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
           <span className="text-2xl">📅</span>
           <div>
-            <p className="text-2xl font-bold text-slate-900">12</p>
-            <p className="text-xs text-slate-500 font-medium">Ραντεβού σήμερα</p>
+            <p className="text-2xl font-bold text-slate-900">
+              {appointments.filter(a => a.start_at.includes(formatDateString(currentDate))).length}
+            </p>
+            <p className="text-xs text-slate-500 font-medium">Ραντεβού επιλεγμένης ημέρας</p>
           </div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
@@ -126,7 +209,10 @@ export default function AppointmentsPage() {
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="divide-y divide-slate-100">
             {TIME_SLOTS.map((time) => {
-              const appt = appointments.find(a => a.start_at.includes(time));
+              // 5. Δυναμικό φιλτράρισμα βάσει της επιλεγμένης ημέρας ΚΑΙ ώρας
+              const targetDayStr = formatDateString(currentDate);
+              const appt = appointments.find(a => a.start_at.startsWith(targetDayStr) && a.start_at.includes(time));
+              
               return (
                 <div key={time} className="flex hover:bg-slate-50/50 transition-colors">
                   <div className="w-24 px-4 py-4 text-xs font-bold text-slate-400 border-r border-slate-100 flex items-center justify-center bg-slate-50/30">
@@ -179,13 +265,13 @@ export default function AppointmentsPage() {
         /* Week Grid Implementation Component */
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
           <div className="min-w-[800px]">
-            {/* Week Header */}
+            {/* Dynamic Week Header */}
             <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/50">
               <div className="p-3 text-center text-xs font-bold text-slate-400 border-r border-slate-100">Ώρα</div>
-              {DAYS_OF_WEEK.map((day) => (
+              {daysOfWeek.map((day) => (
                 <div key={day.name} className="p-3 text-center border-r border-slate-100 last:border-0">
                   <p className="text-xs font-bold text-slate-700">{day.name}</p>
-                  <p className="text-[10px] font-medium text-slate-400">{day.date}</p>
+                  <p className="text-[10px] font-medium text-slate-400">{day.formattedDate}</p>
                 </div>
               ))}
             </div>
@@ -196,10 +282,9 @@ export default function AppointmentsPage() {
                   <div className="p-3 text-center text-xs font-bold text-slate-400 bg-slate-50/20 border-r border-slate-100 flex items-center justify-center">
                     {time}
                   </div>
-                  {DAYS_OF_WEEK.map((day) => {
-                    // Στο mockup, τα ραντεβού εμφανίζονται κυρίως την Παρασκευή 19/06
-                    const isFriday = day.name === 'Παρασκευή';
-                    const appt = isFriday ? appointments.find(a => a.start_at.includes(time)) : null;
+                  {daysOfWeek.map((day) => {
+                    // 6. Δυναμική εύρεση ραντεβού για τη συγκεκριμένη ημέρα της εβδομάδας
+                    const appt = appointments.find(a => a.start_at.startsWith(day.isoString) && a.start_at.includes(time));
                     return (
                       <div key={day.name} className="p-1 min-h-[60px] border-r border-slate-100 last:border-0 bg-white flex items-center">
                         {appt ? (
