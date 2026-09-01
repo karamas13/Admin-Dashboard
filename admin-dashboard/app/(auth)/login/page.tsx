@@ -1,123 +1,153 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MdOutlineApps } from "react-icons/md";
-
+import { api, getStoredToken } from '@/services/api';
+import { 
+  LockClosedIcon, 
+  EnvelopeIcon, 
+  ExclamationCircleIcon,
+  BuildingOffice2Icon,
+  ArrowRightIcon
+} from '@heroicons/react/24/outline';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Αν ο χρήστης είναι ήδη συνδεδεμένος, ανακατεύθυνση στο Dashboard
+  useEffect(() => {
+    const token = getStoredToken();
+    if (token) {
+      router.replace('/');
+    }
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
 
-    // Mock Authentication Validation
-    setTimeout(() => {
-      if (email === 'admin@testclinic.gr' && password === 'admin123') {
-        // Αποθήκευση εικονικού login στην προσωρινή μνήμη του browser
-        localStorage.setItem('mock_session', JSON.stringify({ email, isLoggedIn: true }));
-        
-        // Ανακατεύθυνση στο Dashboard
-        router.push('/');
+    if (!email || !password) {
+      setError('Παρακαλώ συμπληρώστε όλα τα πεδία.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      const res = await api.login(email, password);
+        console.log('API Login Response:', res);
+      // Έλεγχος αν επιστράφηκε valid token
+      const token = res?.session?.access_token || res?.token || res?.access_token;
+
+      if (token) {
+        // Hard Redirect ώστε να αναγνωριστεί άμεσα το νέο cookie από το Next.js Middleware
+        window.location.href = '/';
       } else {
-        setError('Μη έγκυρο email ή κωδικός πρόσβασης. Δοκιμάστε admin@testclinic.gr / admin123');
-        setIsLoading(false);
+        setError(res?.error || res?.message || 'Αποτυχία αυθεντικοποίησης. Ελέγξτε τα στοιχεία σας.');
       }
-    }, 800); // Μια μικρή καθυστέρηση για ρεαλιστικό εφέ φόρτωσης
+
+    } catch (err: any) {
+      console.error('❌ Σφάλμα κατά τη σύνδεση:', err);
+      setError(err?.message || 'Αποτυχία σύνδεσης. Ελέγξτε τα στοιχεία σας.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#0b1329] flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
-        {/* Header με το Branding */}
-        <div className="p-8 bg-slate-50 border-b border-slate-100 text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-md shadow-blue-500/20">
-            <MdOutlineApps className='text-white text-5xl'/>
+    <div className="min-h-screen w-full bg-slate-50 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50 p-6 sm:p-8 space-y-6">
+        
+        {/* Header / Branding */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex p-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 mb-2">
+            <BuildingOffice2Icon className="w-8 h-8" />
           </div>
-          <h1 className="text-xl font-bold text-slate-900">AI Receptionist</h1>
-          <p className="text-xs font-medium text-slate-500 mt-1">Καλώς ορίσατε στο Production Admin Panel</p>
+          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
+            Καλώς ήρθατε
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">
+            Συνδεθείτε στον πίνακα διαχείρισης της κλινικής σας
+          </p>
         </div>
 
-        {/* Form Container */}
-        <form onSubmit={handleSubmit} className="p-8 space-y-5">
-          {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg">
-              ⚠️ {error}
-            </div>
-          )}
+        {/* Error Alert */}
+        {error && (
+          <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2.5">
+            <ExclamationCircleIcon className="w-5 h-5 shrink-0 text-rose-500 mt-0.5" />
+            <span className="font-medium leading-relaxed">{error}</span>
+          </div>
+        )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Email Διεύθυνση
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Email
             </label>
-            <input
-              type="email"
-              required
-              placeholder="π.χ. admin@testclinic.gr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-slate-800 bg-slate-50/50"
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <EnvelopeIcon className="w-5 h-5" />
+              </div>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="doctor@clinic.gr"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Κωδικός Πρόσβασης
-              </label>
-              <a href="#" className="text-xs font-semibold text-blue-600 hover:underline">
-                Ξέχασες τον κωδικό;
-              </a>
-            </div>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 transition-colors text-slate-800 bg-slate-50/50"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="remember"
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-            />
-            <label id="remember" className="text-xs font-medium text-slate-600 select-none">
-              Να με θυμάσαι σε αυτή τη συσκευή
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Κωδικός Πρόσβασης
             </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <LockClosedIcon className="w-5 h-5" />
+              </div>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 px-4 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed group active:scale-[0.99]"
           >
             {isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Σύνδεση σε εξέλιξη...
+                <span>Σύνδεση...</span>
               </>
             ) : (
-              'Είσοδος στο Σύστημα'
+              <>
+                <span>Σύνδεση</span>
+                <ArrowRightIcon className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </>
             )}
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-          <p className="text-[11px] font-medium text-slate-400">
-            Δοκιμαστικά Credentials: <span className="font-bold text-slate-600">admin@testclinic.gr</span> / <span className="font-bold text-slate-600">admin123</span>
+        <div className="pt-2 text-center border-t border-slate-100">
+          <p className="text-[11px] text-slate-400 font-medium">
+            AI Clinic Receptionist Dashboard &copy; 2026
           </p>
         </div>
+
       </div>
     </div>
   );

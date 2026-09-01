@@ -1,22 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import AppointmentDetailsPanel from '@/components/appointment-details';
 import CreateAppointmentModal from '@/components/create-appointment-modal';
 import { Appointment, AppointmentStatus } from '@/types';
+import { api } from '@/services/api';
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
-
-
-// Mock Data - Προσαρμοσμένα ώστε να έχουν ημερομηνίες
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  { appointment_id: '1', caller_name: 'Μαρία Παπαδοπούλου', phone: '694 123 4567', appointment_type_code: 'Καθαρισμός', urgency_code: 'normal', start_at: '2026-06-19T09:00:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
-  { appointment_id: '2', caller_name: 'Κώστας Ιωάννου', phone: '697 987 6543', appointment_type_code: 'Έλεγχος', urgency_code: 'normal', start_at: '2026-06-19T09:30:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
-  { appointment_id: '3', caller_name: 'Νίκος Δημητρίου', phone: '698 555 1122', appointment_type_code: 'Σφράγισμα', urgency_code: 'normal', start_at: '2026-06-19T10:30:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
-  { appointment_id: '4', caller_name: 'Ελένη Καραμάνου', phone: '694 222 3344', appointment_type_code: 'Έλεγχος', urgency_code: 'high', start_at: '2026-06-19T11:00:00+03:00', duration_minutes: 30, status: 'pending', google_sync_status: 'pending' },
-  { appointment_id: '5', caller_name: 'Παναγιώτης Πρωτοψάλτης', phone: '697 111 2233', appointment_type_code: 'Πόνος', urgency_code: 'emergency', start_at: '2026-06-19T12:00:00+03:00', duration_minutes: 30, status: 'booked', google_sync_status: 'healthy' },
-  { appointment_id: '6', caller_name: 'Γιώργος Σταθόπουλος', phone: '694 333 2211', appointment_type_code: 'Λεύκανση', urgency_code: 'normal', start_at: '2026-06-19T13:30:00+03:00', duration_minutes: 30, status: 'completed', google_sync_status: 'healthy' },
-  { appointment_id: '7', caller_name: 'Άννα Μαρκοπούλου', phone: '694 888 7766', appointment_type_code: 'Ακύρωση', urgency_code: 'normal', start_at: '2026-06-19T14:30:00+03:00', duration_minutes: 30, status: 'cancelled', google_sync_status: 'healthy' },
-];
 
 const TIME_SLOTS = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', 
@@ -26,24 +15,94 @@ const TIME_SLOTS = [
 
 export default function AppointmentsPage() {
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Δυναμικό State για την τρέχουσα ημερομηνία (ξεκινάει από το Mock Point 19/06/2026 για να βλέπεις τα δεδομένα σου)
-  const [currentDate, setCurrentDate] = useState<Date>(new Date('2026-06-19'));
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
-  // Helper: Μορφοποίηση ημερομηνίας σε YYYY-MM-DD για φιλτράρισμα
   const formatDateString = (date: Date) => {
     const offset = date.getTimezoneOffset();
     const adjustedDate = new Date(date.getTime() - (offset * 60 * 1000));
     return adjustedDate.toISOString().split('T')[0];
   };
 
-  // 2. Υπολογισμός των ημερών της τρέχουσας εβδομάδας (Δευτέρα έως Κυριακή)
-  const getDaysOfWeek = (anchorDate: Date) => {
+  const isSlotMatching = (apptStartAt: string, targetIsoDateStr: string, slotTime: string) => {
+    if (!apptStartAt) return false;
+    
+    const apptDate = new Date(apptStartAt);
+    const apptDayStr = formatDateString(apptDate);
+    if (apptDayStr !== targetIsoDateStr) return false;
+
+    const hours = String(apptDate.getHours()).padStart(2, '0');
+    const minutes = String(apptDate.getMinutes()).padStart(2, '0');
+    const apptTime = `${hours}:${minutes}`;
+
+    return apptTime === slotTime;
+  };
+
+  const getAppointmentTypeLabel = (typeCode?: string) => {
+    if (!typeCode) return 'Γενική Επίσκεψη';
+    
+    const lower = typeCode.toLowerCase().trim();
+    switch (lower) {
+      case 'cleaning':
+      case 'teeth_cleaning':
+        return 'Καθαρισμός';
+      case 'examination':
+      case 'exam':
+      case 'checkup':
+        return 'Εξέταση / Έλεγχος';
+      case 'consultation':
+      case 'consult':
+        return 'Συμβουλευτική';
+      case 'treatment':
+        return 'Θεραπεία';
+      case 'followup':
+      case 'follow_up':
+        return 'Επανεξέταση';
+      case 'emergency':
+        return 'Έκτακτο';
+      case 'extraction':
+        return 'Εξαγωγή';
+      case 'whitening':
+        return 'Λεύκανση';
+      case 'regular':
+        return 'Τακτικό';
+      default:
+        return typeCode;
+    }
+  };
+
+  const getPatientName = (appt: any) => {
+    if (!appt) return 'Ανώνυμος Ασθενής';
+    return (
+      appt.caller_name ||
+      appt.patient_name ||
+      appt.patient?.full_name ||
+      appt.patient?.name ||
+      appt.caller?.name ||
+      appt.name ||
+      'Ανώνυμος Ασθενής'
+    );
+  };
+
+  const getPatientPhone = (appt: any) => {
+    if (!appt) return '-';
+    return (
+      appt.phone_normalized ||
+      appt.callback_phone ||
+      appt.phone_number ||
+      appt.patient?.phone ||
+      appt.caller?.phone ||
+      '-'
+    );
+  };
+
+  const getDaysOfWeek = useCallback((anchorDate: Date) => {
     const currentDay = anchorDate.getDay();
-    // Στην JS η Κυριακή είναι 0. Μετατρέπουμε ώστε η Δευτέρα να είναι η αρχή (0) και η Κυριακή το (6)
     const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
     
     const monday = new Date(anchorDate);
@@ -61,11 +120,49 @@ export default function AppointmentsPage() {
         isoString: formatDateString(d)
       };
     });
-  };
+  }, []);
 
   const daysOfWeek = getDaysOfWeek(currentDate);
 
-  // 3. Συναρτήσεις Πλοήγησης (Navigation)
+  const loadAppointments = async () => {
+    try {
+      setIsLoading(true);
+
+      const dayStr = formatDateString(currentDate);
+      let startAt = '';
+      let endAt = '';
+
+      if (viewMode === 'day') {
+        startAt = `${dayStr}T00:00:00.000Z`;
+        endAt = `${dayStr}T23:59:59.999Z`;
+      } else {
+        const currentDaysOfWeek = getDaysOfWeek(currentDate);
+        startAt = `${currentDaysOfWeek[0].isoString}T00:00:00.000Z`;
+        endAt = `${currentDaysOfWeek[6].isoString}T23:59:59.999Z`;
+      }
+
+      const data = await api.getAppointments({ startAt, endAt });
+
+      if (data && Array.isArray(data.appointments)) {
+        setAppointments(data.appointments);
+      } else if (Array.isArray(data)) {
+        setAppointments(data);
+      } else {
+        setAppointments([]);
+      }
+    } catch (err) {
+      console.error('Σφάλμα κατά τη φόρτωση των ραντεβού:', err);
+      setAppointments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, viewMode]);
+
   const handlePrev = () => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') {
@@ -87,15 +184,21 @@ export default function AppointmentsPage() {
   };
 
   const handleToday = () => {
-    // Επιστροφή στην αρχική ημερομηνία των mock δεδομένων
-    setCurrentDate(new Date('2026-06-19'));
+    setCurrentDate(new Date());
+  };
+
+  const handleOpenCreate = (dateStr?: string, timeStr?: string) => {
+    const targetDate = dateStr || formatDateString(currentDate);
+    const targetTime = timeStr || '09:00';
+    
+    setSelectedSlot({ date: targetDate, time: targetTime });
+    setIsCreateOpen(true);
   };
 
   const getStatusBadgeStyles = (status: AppointmentStatus) => {
     switch (status) {
       case 'booked': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'cancelled': return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'completed': return 'bg-purple-50 text-purple-700 border-purple-200';
       default: return 'bg-slate-50 text-slate-500 border-slate-200';
     }
@@ -105,154 +208,177 @@ export default function AppointmentsPage() {
     switch (status) {
       case 'booked': return 'Επιβεβαιώμενο';
       case 'pending': return 'Σε αναμονή';
-      case 'cancelled': return 'Ακυρώθηκε';
       case 'completed': return 'Ολοκληρώθηκε';
       default: return 'Διαθέσιμο';
     }
   };
 
+  const activeAppointments = appointments.filter(a => a.status !== 'cancelled');
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 max-w-full overflow-hidden">
       {/* Top Controls Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-white p-3 md:p-4 rounded-xl border border-slate-200 shadow-sm">
+        
+        {/* Toggle View & Main Action Button */}
+        <div className="flex items-center justify-between sm:justify-start gap-2">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+            <button 
+              onClick={() => setViewMode('day')}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'day' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Ημέρα
+            </button>
+            <button 
+              onClick={() => setViewMode('week')}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              Εβδομάδα
+            </button>
+          </div>
+
           <button 
-            onClick={() => setViewMode('day')}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'day' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            onClick={() => handleOpenCreate()}
+            className="sm:hidden px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
           >
-            Ημέρα
-          </button>
-          <button 
-            onClick={() => setViewMode('week')}
-            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'week' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-          >
-            Εβδομάδα
+            + Νέο
           </button>
         </div>
 
-        {/* 4. Δυναμικό Navigation UI */}
-        <div className="flex items-center gap-3">
+        {/* Navigation & Dates */}
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3">
           <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm">
             <button 
               onClick={handlePrev}
-              className="flex items-center justify-center p-1.5 px-3 text-slate-600 hover:bg-slate-50 border-r border-slate-200 transition-colors text-xs font-bold"
+              className="flex items-center justify-center p-1.5 px-2.5 sm:px-3 text-slate-600 hover:bg-slate-50 border-r border-slate-200 transition-colors text-xs font-bold"
+              title="Προηγούμενο"
             >
-              <BsChevronBarLeft className='text-xl mr-1'/>Προηγούμενη Εβδομάδα
+              <BsChevronBarLeft className='text-lg sm:text-xl sm:mr-1'/> 
+              <span className="hidden sm:inline">{viewMode === 'day' ? 'Προηγούμενη Ημέρα' : 'Προηγούμενη Εβδομάδα'}</span>
             </button>
             <button 
               onClick={handleNext}
-              className="flex items-center justify-center p-1.5 px-3 text-slate-600 hover:bg-slate-50 transition-colors text-xs font-bold"
+              className="flex items-center justify-center p-1.5 px-2.5 sm:px-3 text-slate-600 hover:bg-slate-50 transition-colors text-xs font-bold"
+              title="Επόμενο"
             >
-              Επόμενη Εβδομάδα<BsChevronBarRight className='text-xl ml-1'/>
+              <span className="hidden sm:inline">{viewMode === 'day' ? 'Επόμενη Ημέρα' : 'Επόμενη Εβδομάδα'}</span>
+              <BsChevronBarRight className='text-lg sm:text-xl sm:ml-1'/>
             </button>
           </div>
 
-          <div className="text-sm font-semibold text-slate-800 min-w-45 text-center capitalize">
+          <div className="text-xs sm:text-sm font-semibold text-slate-800 text-center capitalize flex items-center justify-center gap-1.5 min-w-[140px] sm:min-w-[180px]">
             {viewMode === 'day' 
-              ? currentDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-              : `Εβδομάδα: ${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
+              ? currentDate.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })
+              : `${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
             }
+            {isLoading && (
+              <div className="w-3 h-3 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin shrink-0" />
+            )}
           </div>
 
-          <button 
-            onClick={handleToday}
-            className="px-3 py-1.5 text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg"
-          >
-            Αρχική (19/06)
-          </button>
-          <button 
-            onClick={() => setIsCreateOpen(true)}
-            className="px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
-          >
-            + Νέο Ραντεβού
-          </button>
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+            <button 
+              onClick={handleToday}
+              className="px-2.5 sm:px-3 py-1.5 text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg"
+            >
+              Σήμερα
+            </button>
+            <button 
+              onClick={() => handleOpenCreate()}
+              className="hidden sm:block px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+            >
+              + Νέο Ραντεβού
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Summary KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* ... (Οι KPI κάρτες παραμένουν ίδιες) ... */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <span className="text-2xl">📅</span>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">
-              {appointments.filter(a => a.start_at.includes(formatDateString(currentDate))).length}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+          <span className="text-xl sm:text-2xl shrink-0">📅</span>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
+              {activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length}
             </p>
-            <p className="text-xs text-slate-500 font-medium">Ραντεβού επιλεγμένης ημέρας</p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Ενεργά Ραντεβού</p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <span className="text-2xl">🕒</span>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">8</p>
-            <p className="text-xs text-slate-500 font-medium">Διαθέσιμα ραντεβού</p>
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+          <span className="text-xl sm:text-2xl shrink-0">🕒</span>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
+              {Math.max(0, TIME_SLOTS.length - activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length)}
+            </p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Κενά Slots</p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <span className="text-2xl">📞</span>
-          <div>
-            <p className="text-2xl font-bold text-slate-900">2</p>
-            <p className="text-xs text-slate-500 font-medium">Αιτήματα επικοινωνίας</p>
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+          <span className="text-xl sm:text-2xl shrink-0">❌</span>
+          <div className="min-w-0">
+            <p className="text-lg sm:text-2xl font-bold text-slate-900 truncate">
+              {appointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate)) && a.status === 'cancelled').length}
+            </p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Ακυρώσεις</p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <span className="text-2xl text-emerald-500">🔄</span>
-          <div>
-            <p className="text-sm font-bold text-emerald-600">Όλα εντάξει</p>
-            <p className="text-xs text-slate-500 font-medium">Google Sync</p>
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 col-span-2 lg:col-span-1">
+          <span className="text-xl sm:text-2xl text-emerald-500 shrink-0">🔄</span>
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">Συνδεδεμένο</p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Live Supabase Database</p>
           </div>
         </div>
       </div>
 
-      {/* Primary Scheduling Calendar Interface */}
+      {/* Day View */}
       {viewMode === 'day' ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="divide-y divide-slate-100">
             {TIME_SLOTS.map((time) => {
-              // 5. Δυναμικό φιλτράρισμα βάσει της επιλεγμένης ημέρας ΚΑΙ ώρας
               const targetDayStr = formatDateString(currentDate);
-              const appt = appointments.find(a => a.start_at.startsWith(targetDayStr) && a.start_at.includes(time));
-              
+              const appt = activeAppointments.find(a => isSlotMatching(a.start_at, targetDayStr, time));
+
               return (
                 <div key={time} className="flex hover:bg-slate-50/50 transition-colors">
-                  <div className="w-24 px-4 py-4 text-xs font-bold text-slate-400 border-r border-slate-100 flex items-center justify-center bg-slate-50/30">
+                  <div className="w-16 sm:w-24 px-2 sm:px-4 py-3 text-[11px] sm:text-xs font-bold text-slate-400 border-r border-slate-100 flex items-center justify-center bg-slate-50/30 shrink-0">
                     {time}
                   </div>
-                  <div className="flex-1 p-2 min-h-[56px] flex items-center">
+                  <div className="flex-1 p-1.5 sm:p-2 min-h-[56px] flex items-center overflow-hidden">
                     {appt ? (
                       <div 
                         onClick={() => setSelectedAppointment(appt)}
-                        className={`w-full flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all ${
+                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all gap-2 sm:gap-4 ${
                           appt.status === 'booked' ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50' :
                           appt.status === 'pending' ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50' :
-                          appt.status === 'cancelled' ? 'border-rose-200 bg-rose-50/40 hover:bg-rose-50 line-through text-slate-400' :
                           'border-purple-200 bg-purple-50/40 hover:bg-purple-50'
                         }`}
                       >
-                        <div className="flex items-center gap-6">
-                          <div className={`w-1.5 h-8 rounded-full ${
+                        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                          <div className={`w-1.5 h-6 sm:h-8 rounded-full shrink-0 ${
                             appt.status === 'booked' ? 'bg-emerald-500' :
-                            appt.status === 'pending' ? 'bg-amber-500' :
-                            appt.status === 'cancelled' ? 'bg-rose-500' : 'bg-purple-500'
+                            appt.status === 'pending' ? 'bg-amber-500' : 'bg-purple-500'
                           }`} />
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{appt.caller_name}</p>
-                            <p className="text-xs text-slate-500 font-medium">{appt.appointment_type_code}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{getPatientName(appt)}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">
+                              {getAppointmentTypeLabel(appt.appointment_type_code)}
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs font-medium text-slate-600">{appt.phone}</span>
-                          <span className={`text-[11px] px-2.5 py-1 rounded-full border font-semibold ${getStatusBadgeStyles(appt.status)}`}>
+                        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 border-t sm:border-0 border-slate-200/40 pt-1.5 sm:pt-0">
+                          <span className="text-[11px] sm:text-xs font-medium text-slate-600 truncate">{getPatientPhone(appt)}</span>
+                          <span className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border font-semibold ${getStatusBadgeStyles(appt.status)}`}>
                             {getStatusLabel(appt.status)}
                           </span>
                         </div>
                       </div>
                     ) : (
                       <button 
-                        onClick={() => setIsCreateOpen(true)}
-                        className="w-full text-left px-4 py-2 text-xs text-slate-400 hover:text-blue-600 border border-dashed border-transparent hover:border-blue-200 hover:bg-blue-50/30 rounded-lg transition-all"
+                        onClick={() => handleOpenCreate(targetDayStr, time)}
+                        className="w-full text-left px-3 sm:px-4 py-2 text-xs text-slate-400 hover:text-blue-600 border border-dashed border-transparent hover:border-blue-200 hover:bg-blue-50/30 rounded-lg transition-all"
                       >
-                        + Διαθέσιμο ραντεβού
+                        + <span className="hidden sm:inline">Διαθέσιμο ραντεβού</span>
                       </button>
                     )}
                   </div>
@@ -262,46 +388,50 @@ export default function AppointmentsPage() {
           </div>
         </div>
       ) : (
-        /* Week Grid Implementation Component */
+        /* Week View */
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-          <div className="min-w-[800px]">
-            {/* Dynamic Week Header */}
+          <div className="min-w-[700px]">
             <div className="grid grid-cols-8 border-b border-slate-200 bg-slate-50/50">
-              <div className="p-3 text-center text-xs font-bold text-slate-400 border-r border-slate-100">Ώρα</div>
+              <div className="p-2 sm:p-3 text-center text-xs font-bold text-slate-400 border-r border-slate-100 sticky left-0 bg-slate-50 z-10">
+                Ώρα
+              </div>
               {daysOfWeek.map((day) => (
-                <div key={day.name} className="p-3 text-center border-r border-slate-100 last:border-0">
-                  <p className="text-xs font-bold text-slate-700">{day.name}</p>
-                  <p className="text-[10px] font-medium text-slate-400">{day.formattedDate}</p>
+                <div key={day.name} className="p-2 sm:p-3 text-center border-r border-slate-100 last:border-0">
+                  <p className="text-[11px] sm:text-xs font-bold text-slate-700 truncate">{day.name}</p>
+                  <p className="text-[9px] sm:text-[10px] font-medium text-slate-400">{day.formattedDate}</p>
                 </div>
               ))}
             </div>
-            {/* Week Matrix Grid Rows */}
             <div className="divide-y divide-slate-100">
               {TIME_SLOTS.map((time) => (
                 <div key={time} className="grid grid-cols-8">
-                  <div className="p-3 text-center text-xs font-bold text-slate-400 bg-slate-50/20 border-r border-slate-100 flex items-center justify-center">
+                  <div className="p-2 sm:p-3 text-center text-[11px] sm:text-xs font-bold text-slate-400 bg-slate-50/80 border-r border-slate-100 flex items-center justify-center sticky left-0 z-10">
                     {time}
                   </div>
                   {daysOfWeek.map((day) => {
-                    // 6. Δυναμική εύρεση ραντεβού για τη συγκεκριμένη ημέρα της εβδομάδας
-                    const appt = appointments.find(a => a.start_at.startsWith(day.isoString) && a.start_at.includes(time));
+                    const appt = activeAppointments.find(a => isSlotMatching(a.start_at, day.isoString, time));
+
                     return (
-                      <div key={day.name} className="p-1 min-h-[60px] border-r border-slate-100 last:border-0 bg-white flex items-center">
+                      <div key={day.name} className="p-1 min-h-[50px] sm:min-h-[60px] border-r border-slate-100 last:border-0 bg-white flex items-center">
                         {appt ? (
                           <div 
                             onClick={() => setSelectedAppointment(appt)}
-                            className={`w-full p-1.5 rounded text-[10px] font-medium border cursor-pointer truncate ${
+                            className={`w-full p-1 sm:p-1.5 rounded text-[9px] sm:text-[10px] font-medium border cursor-pointer overflow-hidden ${
                               appt.status === 'booked' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
                               appt.status === 'pending' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                              appt.status === 'cancelled' ? 'bg-rose-50 border-rose-200 text-rose-800 line-through' :
                               'bg-purple-50 border-purple-200 text-purple-800'
                             }`}
                           >
-                            <div className="font-bold truncate">{appt.caller_name}</div>
-                            <div className="opacity-75 truncate">{appt.appointment_type_code}</div>
+                            <div className="font-bold truncate">{getPatientName(appt)}</div>
+                            <div className="opacity-75 truncate hidden sm:block">{getAppointmentTypeLabel(appt.appointment_type_code)}</div>
                           </div>
                         ) : (
-                          <div className="w-full h-full text-center text-slate-300 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer text-xs font-bold" onClick={() => setIsCreateOpen(true)}>+</div>
+                          <div 
+                            className="w-full h-full text-center text-slate-300 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer text-xs font-bold hover:bg-blue-50/40 rounded transition-all" 
+                            onClick={() => handleOpenCreate(day.isoString, time)}
+                          >
+                            +
+                          </div>
                         )}
                       </div>
                     );
@@ -313,19 +443,28 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Custom Component Mounts */}
+      {/* Modals & Panels */}
       {selectedAppointment && (
         <AppointmentDetailsPanel 
           appointment={selectedAppointment} 
           onClose={() => setSelectedAppointment(null)} 
-          onStateChange={() => {}} 
-        />
+          onStateChange={loadAppointments}
+        />        
       )}
 
       {isCreateOpen && (
         <CreateAppointmentModal 
-          onClose={() => setIsCreateOpen(false)} 
-          onSuccess={() => setIsCreateOpen(false)} 
+          initialDate={selectedSlot?.date}
+          initialTime={selectedSlot?.time}
+          onClose={() => {
+            setIsCreateOpen(false);
+            setSelectedSlot(null);
+          }} 
+          onSuccess={() => {
+            setIsCreateOpen(false);
+            setSelectedSlot(null);
+            loadAppointments();
+          }} 
         />
       )}
     </div>
