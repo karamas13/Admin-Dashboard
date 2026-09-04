@@ -1,10 +1,13 @@
 'use client'
-// src/services/api.ts
 
-const SUPABASE_PROJECT_REF = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; 
+const rawProjectRef = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF || '';
+const SUPABASE_PROJECT_REF = rawProjectRef.replace(/['";\s]/g, '');
+
+const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').replace(/['";\s]/g, ''); 
 const DEFAULT_CLINIC_ID = process.env.NEXT_PUBLIC_SUPABASE_CLINIC_ID; 
-const BASE_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co`;
+
+// Base URL για το Supabase
+const BASE_URL = SUPABASE_PROJECT_REF ? `https://${SUPABASE_PROJECT_REF}.supabase.co` : '';
 
 export const getStoredToken = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -13,7 +16,7 @@ export const getStoredToken = (): string | null => {
 
 export const getStoredClinicId = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('clinic_id');
+  return localStorage.getItem('selected_clinic_id') || localStorage.getItem('clinic_id');
 };
 
 export const setStoredSession = async (token: string, clinicId?: string, user?: any) => {
@@ -25,59 +28,89 @@ export const setStoredSession = async (token: string, clinicId?: string, user?: 
 
     if (clinicId) {
       localStorage.setItem('clinic_id', clinicId);
+      localStorage.setItem('selected_clinic_id', clinicId);
       document.cookie = `clinic_id=${clinicId}; path=/; max-age=86400; SameSite=Lax`;
     }
   }
 };
 
-
-
 export const clearStoredSession = () => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('clinic_id');
+    localStorage.removeItem('selected_clinic_id');
     localStorage.removeItem('user_data');
     document.cookie = 'auth_token=; path=/; max-age=0;';
     document.cookie = 'clinic_id=; path=/; max-age=0;';
   }
 };
 
-async function apiFetch<T>(
-  endpoint: string, 
-  options: RequestInit = {}, 
-  customClinicId?: string
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  clinicIdOverride?: string
 ): Promise<T> {
-  const clinicId = customClinicId || getStoredClinicId();
-  const token = getStoredToken();
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  
+  // 1. Υπολογισμός του clinicId:
+  // Αν το endpoint είναι το /api/dashboard/session και ΔΕΝ έχουμε ρητό override,
+  // ΔΕΝ στέλνουμε X-Clinic-Id header για να μην φάμε 403 Forbidden!
+  let clinicId: string | null = null;
+  
+  if (clinicIdOverride !== undefined) {
+    clinicId = clinicIdOverride;
+  } else if (!endpoint.includes('/api/dashboard/session')) {
+    clinicId = typeof window !== 'undefined' 
+      ? (localStorage.getItem('selected_clinic_id') || localStorage.getItem('clinic_id')) 
+      : null;
+  }
 
-  const headers: Record<string, string> = {
+  // 2. Έλεγχος Δρομολόγησης URL
+  let fullUrl = endpoint;
+  if (!endpoint.startsWith('http')) {
+    if (endpoint.startsWith('/auth/v1')) {
+      fullUrl = `${BASE_URL}${endpoint}`;
+    } else {
+      fullUrl = endpoint; 
+    }
+  }
+
+  // 3. Κατασκευή Headers
+  const headers: HeadersInit = {
     'Content-Type': 'application/json',
-    ...(SUPABASE_ANON_KEY && { 'apikey': SUPABASE_ANON_KEY }),
-    ...(options.headers as Record<string, string>),
+    ...(endpoint.startsWith('/auth/v1') && SUPABASE_ANON_KEY ? { 'apikey': SUPABASE_ANON_KEY } : {}),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(clinicId ? { 'X-Clinic-Id': clinicId } : {}),
+    ...options.headers,
   };
 
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  if (clinicId) headers['x-clinic-id'] = clinicId;
+  const response = await fetch(fullUrl, {
+    ...options,
+    headers,
+  });
 
-  // Αν το endpoint είναι εσωτερικό route του Next.js (/api/...), καλείται στο ίδιο domain
-  // Αλλιώς, αν είναι Supabase auth, στέλνεται στο BASE_URL
-  const url = endpoint.startsWith('http') 
-    ? endpoint 
-    : endpoint.startsWith('/api/') 
-      ? endpoint 
-      : `${BASE_URL}${endpoint}`;
+  if (response.status === 401) {
+    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+      clearStoredSession();
+      window.location.href = '/login';
+    }
+    throw new Error('Session expired');
+  }
 
-  const response = await fetch(url, { ...options, headers });
+  if (response.status === 403) {
+    throw new Error('Δεν έχετε δικαίωμα πρόσβασης για αυτή την ενέργεια.');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    console.error(`Non-JSON response from ${fullUrl}:`, text);
+    throw new Error(`Invalid response from server (${response.status}). Expected JSON.`);
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error_description || 
-      errorData.message_el || 
-      errorData.message || 
-      errorData.error || 
-      'Αποτυχία Σύνδεσης.'
-    );
+    throw new Error(errorData.message || `API Error: ${response.status}`);
   }
 
   return response.json();
@@ -87,7 +120,6 @@ export const api = {
   
   // 1. AUTHENTICATION
   login: async (email: string, password: string) => {
-    // Αίτημα στο Supabase Auth
     const response = await apiFetch<any>('/auth/v1/token?grant_type=password', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -97,18 +129,15 @@ export const api = {
     const user = response?.user;
 
     if (token) {
-      // 1. Προσωρινή αποθήκευση του token
       await setStoredSession(token, undefined, user);
 
       try {
-        // 2. Ρωτάμε το Next.js API σε ποιο clinic ανήκει ο χρήστης
-        const sessionRes = await apiFetch<{ success: boolean; selected_clinic_id: string }>(
+        const sessionRes = await apiFetch<{ success: boolean; selected_clinic_id: string; clinics: any[] }>(
           '/api/dashboard/session',
           { method: 'GET' }
         );
 
         if (sessionRes?.selected_clinic_id) {
-          // 3. Αποθηκεύουμε το ΣΩΣΤΟ clinic_id
           await setStoredSession(token, sessionRes.selected_clinic_id, user);
         }
       } catch (err) {
@@ -128,7 +157,18 @@ export const api = {
 
   // 2. SESSION & CLINIC CONTEXT
   getSession: async (clinicId?: string) => {
-    return apiFetch<{ success: boolean; selected_clinic_id: string }>(
+    return apiFetch<{
+      success: boolean;
+      user: { id: string; email: string };
+      clinics: Array<{
+        id: string;
+        name: string;
+        status: string;
+        role: string;
+        is_default: boolean;
+      }>;
+      selected_clinic_id: string;
+    }>(
       '/api/dashboard/session',
       { method: 'GET' },
       clinicId
@@ -136,12 +176,11 @@ export const api = {
   },
 
   // 3. APPOINTMENTS
-getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId?: string } | string, endAtParam?: string, clinicIdParam?: string) => {
+  getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId?: string } | string, endAtParam?: string, clinicIdParam?: string) => {
     let startAt: string | undefined;
     let endAt: string | undefined;
     let clinicId: string | undefined;
 
-    // Υποστήριξη είτε object είτε μεμονωμένων παραμέτρων
     if (typeof paramsObj === 'object' && paramsObj !== null) {
       startAt = paramsObj.startAt;
       endAt = paramsObj.endAt;
@@ -155,9 +194,8 @@ getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId
     const activeClinicId = clinicId || getStoredClinicId();
     const queryParams = new URLSearchParams();
 
-    // Προσθήκη μόνο αν η τιμή είναι έγκυρη ημερομηνία (και όχι UUID clinic_id)
-    if (startAt && !startAt.includes('-') === false) queryParams.append('start_at', startAt);
-    if (endAt && !endAt.includes('-') === false) queryParams.append('end_at', endAt);
+    if (startAt && startAt.includes('-')) queryParams.append('start_at', startAt);
+    if (endAt && endAt.includes('-')) queryParams.append('end_at', endAt);
     if (activeClinicId) queryParams.append('clinic_id', activeClinicId);
 
     const queryString = queryParams.toString();
@@ -173,7 +211,6 @@ getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId
     }, clinicId);
   },
 
-  // Δημιουργία νέου ραντεβού
   createAppointment: async (payload: any) => {
     const activeClinicId = payload?.clinic_id || getStoredClinicId();
 
@@ -204,22 +241,18 @@ getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId
     return apiFetch<any>('/api/dashboard/settings', { method: 'GET' }, clinicId);
   },
 
- getClosures: async (startsAt?: string, endsAt?: string, clinicId?: string) => {
+  getClosures: async (startsAt?: string, endsAt?: string, clinicId?: string) => {
     const params = new URLSearchParams();
     if (startsAt) params.append('starts_at', startsAt);
     if (endsAt) params.append('ends_at', endsAt);
 
     const data = await apiFetch<any>(`/api/dashboard/schedule-exceptions?${params.toString()}`, { method: 'GET' }, clinicId);
-
-    // Το API επιστρέφει { schedule_exceptions: [...] }
-    // Κάνουμε extract τη λίστα και φιλτράρουμε μόνο τα κλεισίματα (closed)
     const list = Array.isArray(data) ? data : (data?.schedule_exceptions || []);
     
     return list.filter((item: any) => item.availability_effect === 'closed');
   },
 
   createClosure: async (payload: any, clinicId?: string) => {
-    // Εξασφαλίζουμε ότι το payload περιλαμβάνει τα απαιτούμενα πεδία του νέου API
     const formattedPayload = {
       starts_at: payload.starts_at || payload.startsAt,
       ends_at: payload.ends_at || payload.endsAt,
@@ -234,7 +267,6 @@ getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId
       body: JSON.stringify(formattedPayload),
     }, clinicId);
 
-    // Το API επιστρέφει { schedule_exception: { ... } }
     return response?.schedule_exception || response;
   },
 

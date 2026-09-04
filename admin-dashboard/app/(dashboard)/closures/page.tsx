@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '@/services/api';
 import { Closure } from '@/types';
 import { TrashIcon, PlusIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { useClinic } from '@/context/ClinicContext';
 
 const CLINIC_ID = process.env.NEXT_PUBLIC_SUPABASE_CLINIC_ID;
 
@@ -22,6 +23,9 @@ export default function ClosuresPage() {
   const [closures, setClosures] = useState<Closure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const { isReadOnly, isOwner } = useClinic();
+  const isActionDisabled = isReadOnly || !isOwner;
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -154,13 +158,25 @@ const handleDeleteClosure = async (schedule_exception_id: string) => {
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
-        >
-          <PlusIcon className="w-4 h-4" />
-          Προσθήκη Αργίας
-        </button>
+      <button
+         onClick={() => setIsAddModalOpen(true)}
+         disabled={isActionDisabled}
+         title={
+           !isOwner 
+             ? "Μόνο ο διαχειριστής (Owner) μπορεί να προσθέσει εξαιρέσεις." 
+             : isReadOnly 
+             ? "Η λειτουργία δεν είναι διαθέσιμη σε κατάσταση Read-Only" 
+             : ""
+         }
+         className={`w-full sm:w-auto px-4 py-2.5 font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 ${
+           isActionDisabled 
+             ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-70' 
+             : 'bg-blue-600 hover:bg-blue-700 text-white'
+         }`}
+       >
+  <PlusIcon className="w-4 h-4" />
+  Προσθήκη Εξαίρεσης
+</button>
       </div>
 
       {error && (

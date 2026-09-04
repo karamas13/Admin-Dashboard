@@ -1,6 +1,7 @@
 // src/app/layout.tsx
-import './globals.css'; // Βεβαιώσου ότι το path για το css σου είναι σωστό
+import './globals.css';
 import type { Metadata } from 'next';
+import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
   title: 'AI Receptionist Dashboard',
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="el" suppressHydrationWarning>
       <body suppressHydrationWarning className="bg-[#f8fafc]">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

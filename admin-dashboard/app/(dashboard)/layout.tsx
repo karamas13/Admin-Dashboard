@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { 
   CalendarIcon, 
   HomeIcon, 
@@ -12,100 +12,68 @@ import {
   ArrowLeftOnRectangleIcon,
   BellIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline';
-import { api, getStoredToken, getStoredClinicId, clearStoredSession } from '@/services/api';
+import { ClinicProvider, useClinic } from '@/context/ClinicContext';
+import { ClinicLifecycleGuard } from '@/components/ClinicLifecycleGuard';
+import { ClinicSwitcher } from '@/components/ClinicSwitcher';
+import { useAuth } from '@/context/AuthContext';
 
-const navItems = [
-  { name: 'Επισκόπηση', href: '/', icon: HomeIcon },
-  { name: 'Ραντεβού', href: '/appointments', icon: CalendarIcon },
-  { name: 'Κλείσιμο Ημερών', href: '/closures', icon: ClockIcon },
-  { name: 'Αιτήματα Επικοινωνίας', href: '/callbacks', icon: PhoneIcon },
-  { name: 'Ρυθμίσεις', href: '/settings', icon: Cog6ToothIcon },
-];
-
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string>('Φόρτωση...');
-  const [clinicId, setClinicId] = useState<string | null>(null);
+  const { logout, user } = useAuth();
+  const { selectedClinic, isOwner } = useClinic();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
-  useEffect(() => {
-    async function checkAuth() {
-      const token = getStoredToken();
-      const currentClinicId = getStoredClinicId();
-      
-      if (!token) {
-        router.push('/login');
-        return;
-      }
+  const userEmail = user?.email || 'Χρήστης';
 
-      if (currentClinicId) {
-        setClinicId(currentClinicId);
-      }
-
-      // Φόρτωση email από τα αποθηκευμένα στοιχεία χρήστη
-      const savedUser = localStorage.getItem('user_data');
-      if (savedUser) {
-        try {
-          const parsedUser = JSON.parse(savedUser);
-          if (parsedUser?.email) {
-            setUserEmail(parsedUser.email);
-          }
-        } catch (e) {
-          console.error('Failed to parse user data:', e);
-        }
-      }
-
-      try {
-        const session = await api.getSession(currentClinicId || undefined);
-        if (!session.success) {
-          clearStoredSession();
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error('Session validation failed:', error);
-        clearStoredSession();
-        router.push('/login');
-      }
-    }
-
-    checkAuth();
-  }, [router]);
-
-  const handleLogout = () => {
-    api.logout();
-  };
+  // 1. Δυναμικό Navigation βάσει Role (Owner vs Staff)
+  const navItems = [
+    { name: 'Επισκόπηση', href: '/', icon: HomeIcon, ownerOnly: false },
+    { name: 'Ραντεβού', href: '/appointments', icon: CalendarIcon, ownerOnly: false },
+    { name: 'Εξαιρέσεις Ωραρίου', href: '/closures', icon: ClockIcon, ownerOnly: false },
+    { name: 'Αιτήματα Επικοινωνίας', href: '/callbacks', icon: PhoneIcon, ownerOnly: false },
+    ...(isOwner ? [
+      { name: 'Ρυθμίσεις', href: '/settings', icon: Cog6ToothIcon, ownerOnly: true },
+      { name: 'Χρέωση & Λεπτά', href: '/billing', icon: CreditCardIcon, ownerOnly: true },
+    ] : []),
+  ];
 
   const currentTitle = 
     pathname === '/' ? 'Επισκόπηση' :
     pathname === '/appointments' ? 'Ραντεβού' :
-    pathname === '/closures' ? 'Κλείσιμο Ημερών' :
+    pathname === '/closures' ? 'Εξαιρέσεις Ωραρίου' :
     pathname === '/callbacks' ? 'Αιτήματα Επικοινωνίας' :
-    pathname === '/settings' ? 'Ρυθμίσεις' : 'Dashboard';
+    pathname === '/settings' ? 'Ρυθμίσεις' :
+    pathname === '/billing' ? 'Χρέωση & Χρήση' : 'Dashboard';
 
   return (
     <div className="flex h-screen bg-[#f8fafc] font-sans antialiased overflow-hidden flex-col md:flex-row">
         
-      {/* 1. Mobile Top Header (Εμφανίζεται μόνο σε κινητά/tablets) */}
+      {/* 1. Mobile Top Header */}
       <div className="md:hidden bg-[#0b1329] text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 shrink-0 z-30">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
             <span>🫁</span>
           </div>
-          <span className="text-sm font-semibold">Medical Clinic</span>
+          <span className="text-sm font-semibold truncate max-w-[150px]">
+            {selectedClinic?.name || 'Medical Clinic'}
+          </span>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="p-1.5 text-slate-300 hover:text-white rounded-lg bg-slate-800/80"
-          aria-label="Toggle Menu"
-        >
-          {isMobileMenuOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <ClinicSwitcher />
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1.5 text-slate-300 hover:text-white rounded-lg bg-slate-800/80"
+            aria-label="Toggle Menu"
+          >
+            {isMobileMenuOpen ? <XMarkIcon className="w-6 h-6" /> : <Bars3Icon className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
-      {/* 2. Mobile Backdrop / Overlay */}
+      {/* 2. Mobile Backdrop */}
       {isMobileMenuOpen && (
         <div 
           onClick={() => setIsMobileMenuOpen(false)}
@@ -123,16 +91,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div>
           {/* Clinic Brand Area */}
           <div className="p-6 flex items-center justify-between border-b border-slate-800/55">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                 <span>🫁</span>
               </div>
-              <div>
-                <h2 className="text-sm font-semibold text-white">Medical Dashboard</h2>
-                <p className="text-xs text-slate-500">Κλινική Διαχείριση</p>
+              <div className="truncate">
+                <h2 className="text-sm font-semibold text-white truncate">
+                  {selectedClinic?.name || 'Medical Dashboard'}
+                </h2>
+                <p className="text-xs text-slate-500 capitalize">
+                  Ρόλος: {selectedClinic?.role || 'Staff'}
+                </p>
               </div>
             </div>
-            {/* Close button για mobile drawer */}
             <button 
               onClick={() => setIsMobileMenuOpen(false)}
               className="md:hidden text-slate-400 hover:text-white"
@@ -178,7 +149,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
           <button 
-            onClick={handleLogout}
+            onClick={logout}
             className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-slate-400 hover:text-red-400 rounded-md transition-colors"
           >
             <ArrowLeftOnRectangleIcon className="w-4 h-4" />
@@ -197,12 +168,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </h1>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
-            {/* Top Bar Status / Info */}
-            {clinicId && (
-              <span className="bg-slate-100 text-slate-600 rounded-lg text-xs px-2.5 py-1.5 font-mono">
-                ID: {clinicId.substring(0, 8)}...
-              </span>
-            )}
+            {/* Multi-Clinic Selector στην επιφάνεια εργασίας */}
+            <div className="hidden md:block">
+              <ClinicSwitcher />
+            </div>
+
             <button className="relative p-1.5 text-slate-400 hover:text-slate-600 bg-slate-50 border border-slate-200 rounded-full shrink-0">
               <BellIcon className="w-5 h-5" />
               <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
@@ -210,11 +180,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Content Viewport */}
+        {/* Content Viewport περιτυλιγμένο από το Lifecycle Guard */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-8">
-          {children}
+          <ClinicLifecycleGuard>
+            {children}
+          </ClinicLifecycleGuard>
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ClinicProvider>
+      <InnerDashboardLayout>
+        {children}
+      </InnerDashboardLayout>
+    </ClinicProvider>
   );
 }
