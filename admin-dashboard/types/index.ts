@@ -1,6 +1,7 @@
 export type AppointmentStatus = 'booked' | 'pending' | 'cancelled' | 'completed' | 'available';
 export type UrgencyLevel = 'normal' | 'high' | 'emergency';
 export type ClosureReason = 'closed' | 'holiday' | 'vacation' | 'staff_absence' | 'emergency';
+export type ClinicStatus = 'active' | 'suspended' | 'closed';
 
 export interface Clinic {
   clinic_id: string; // Ευθυγράμμιση με το DB Schema (clinic_id αντί για id)

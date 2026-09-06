@@ -288,4 +288,10 @@ export const api = {
       body: JSON.stringify({ status }),
     }, clinicId);
   },
+
+// 6. BILLING & USAGE
+// 6. BILLING & USAGE
+getBilling: async (clinicId?: string) => {
+  return apiFetch<any>('/api/dashboard/billing-periods', { method: 'GET' }, clinicId);
+},
 };

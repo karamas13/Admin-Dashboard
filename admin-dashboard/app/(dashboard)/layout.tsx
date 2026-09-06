@@ -17,8 +17,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { ClinicProvider, useClinic } from '@/context/ClinicContext';
 import { ClinicLifecycleGuard } from '@/components/ClinicLifecycleGuard';
-import { ClinicSwitcher } from '@/components/ClinicSwitcher';
+import ClinicSwitcher from '@/components/ClinicSwitcher';
 import { useAuth } from '@/context/AuthContext';
+import ClinicStatusBanner from '@/components/ClinicStatusBanner';
+import ClosedClinicGuard from '@/components/ClosedClinicGuard';
 
 function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -57,7 +59,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">
             <span>🫁</span>
           </div>
-          <span className="text-sm font-semibold truncate max-w-[150px]">
+          <span className="text-sm font-semibold truncate max-w-37.5">
             {selectedClinic?.name || 'Medical Clinic'}
           </span>
         </div>
