@@ -1,7 +1,24 @@
-export type AppointmentStatus = 'booked' | 'pending' | 'cancelled' | 'completed' | 'available';
+
 export type UrgencyLevel = 'normal' | 'high' | 'emergency';
 export type ClosureReason = 'closed' | 'holiday' | 'vacation' | 'staff_absence' | 'emergency';
 export type ClinicStatus = 'active' | 'suspended' | 'closed';
+
+export type AppointmentStatus = 
+  | 'pending'
+  | 'booked'
+  | 'cancelled'
+  | 'rescheduled'
+  | 'expired'
+  | 'failed';
+
+  export interface AvailabilityCheckResponse {
+  available: boolean;
+  reason?: string;
+  suggestions?: Array<{
+    starts_at: string;
+    ends_at: string;
+  }>;
+}
 
 export interface Clinic {
   clinic_id: string; // Ευθυγράμμιση με το DB Schema (clinic_id αντί για id)
@@ -12,6 +29,7 @@ export interface Clinic {
   appointment_interval: number; // σε λεπτά
   created_at?: string;
 }
+
 
 export interface Appointment {
   appointment_id: string;

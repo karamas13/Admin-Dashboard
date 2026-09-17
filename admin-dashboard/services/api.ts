@@ -211,24 +211,30 @@ export const api = {
     }, clinicId);
   },
 
-  createAppointment: async (payload: any) => {
-    const activeClinicId = payload?.clinic_id || getStoredClinicId();
+ // Create Appointment
+createAppointment: async (payload: any, clinicId?: string) => {
+  const activeClinicId = clinicId || getStoredClinicId();
 
-    return apiFetch<any>(
-      '/api/dashboard/appointments',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...payload,
-          clinic_id: activeClinicId,
-        }),
-      },
-      activeClinicId || undefined
-    );
-  },
+  const formattedPayload = {
+    clinic_id: activeClinicId,
+    caller_name: payload.caller_name || payload.patient_name || 'Ανώνυμος Ασθενής',
+    phone: payload.phone || payload.phone_normalized || '',
+    appointment_type_code: payload.appointment_type_code || 'examination',
+    start_at: payload.start_at || payload.starts_at,
+    duration_minutes: payload.duration_minutes || 30,
+    status: payload.status || 'booked',
+    notes: payload.notes || '',
+  };
+
+  return apiFetch<any>(
+    '/api/dashboard/appointments',
+    {
+      method: 'POST',
+      body: JSON.stringify(formattedPayload),
+    },
+    activeClinicId || undefined
+  );
+},
 
   cancelAppointment: async (appointmentId: string, clinicId?: string) => {
     return apiFetch<any>(`/api/dashboard/appointments/${appointmentId}/cancel`, {
@@ -236,62 +242,122 @@ export const api = {
     }, clinicId);
   },
 
-  // 4. SETTINGS & CLOSURES
-  getSettings: async (clinicId?: string) => {
-    return apiFetch<any>('/api/dashboard/settings', { method: 'GET' }, clinicId);
-  },
-
-  getClosures: async (startsAt?: string, endsAt?: string, clinicId?: string) => {
-    const params = new URLSearchParams();
-    if (startsAt) params.append('starts_at', startsAt);
-    if (endsAt) params.append('ends_at', endsAt);
-
-    const data = await apiFetch<any>(`/api/dashboard/schedule-exceptions?${params.toString()}`, { method: 'GET' }, clinicId);
-    const list = Array.isArray(data) ? data : (data?.schedule_exceptions || []);
+ // Check appointment slot availability and get alternatives
+ checkAvailability: async (payload: { starts_at: string; duration_minutes?: number }, clinicId?: string) => {
+  try {
+    const params = new URLSearchParams({
+      starts_at: payload.starts_at,
+      ...(payload.duration_minutes ? { duration_minutes: String(payload.duration_minutes) } : {}),
+    });
     
-    return list.filter((item: any) => item.availability_effect === 'closed');
-  },
+    return await apiFetch<any>(
+      `/api/dashboard/appointments/check-availability?${params.toString()}`,
+      { method: 'GET' },
+      clinicId
+    );
+  } catch (err: any) {
+    // Αν το endpoint δεν υπάρχει ακόμα (404/405), επιστρέφουμε fallback ότι είναι διαθέσιμο
+    // για να μην εμποδίζεται η δημιουργία ραντεβού
+    if (err?.message?.includes('405') || err?.message?.includes('404')) {
+      console.warn('Check availability endpoint not available, proceeding to create appointment.');
+      return { available: true };
+    }
+    throw err;
+  }
+},
 
-  createClosure: async (payload: any, clinicId?: string) => {
-    const formattedPayload = {
-      starts_at: payload.starts_at || payload.startsAt,
-      ends_at: payload.ends_at || payload.endsAt,
-      availability_effect: 'closed',
-      reason_code: payload.reason_code || payload.reasonCode || 'closed',
-      active: payload.active !== undefined ? payload.active : true,
-      ...payload
-    };
 
-    const response = await apiFetch<any>('/api/dashboard/schedule-exceptions', {
+  // 4. CLOSURES
+
+
+  getScheduleExceptions: async (startsAt?: string, endsAt?: string, clinicId?: string) => {
+  const params = new URLSearchParams();
+  if (startsAt) params.append('starts_at', startsAt);
+  if (endsAt) params.append('ends_at', endsAt);
+
+  const activeClinicId = clinicId || getStoredClinicId();
+  const endpoint = `/api/dashboard/schedule-exceptions${params.toString() ? `?${params.toString()}` : ''}`;
+
+  const data = await apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
+  return Array.isArray(data) ? data : (data?.schedule_exceptions || []);
+},
+
+createScheduleException: async (payload: any, clinicId?: string) => {
+  const activeClinicId = clinicId || payload?.clinic_id || getStoredClinicId();
+
+  const formattedPayload = {
+    clinic_id: activeClinicId,
+    starts_at: payload.starts_at || payload.startsAt,
+    ends_at: payload.ends_at || payload.endsAt,
+    availability_effect: payload.availability_effect || 'closed', // 'closed' ή 'open'
+    reason_code: payload.reason_code || payload.reasonCode || 'other',
+    is_all_day: payload.is_all_day ?? false,
+    note: payload.note || '',
+    active: payload.active !== undefined ? payload.active : true,
+  };
+
+  const response = await apiFetch<any>(
+    '/api/dashboard/schedule-exceptions',
+    {
       method: 'POST',
       body: JSON.stringify(formattedPayload),
-    }, clinicId);
+    },
+    activeClinicId || undefined
+  );
 
-    return response?.schedule_exception || response;
-  },
+  return response?.schedule_exception || response;
+},
 
-  deleteClosure: async (schedule_exception_id: string, clinicId?: string) => {
-    return apiFetch<any>(`/api/dashboard/schedule-exceptions/${schedule_exception_id}`, { method: 'DELETE' }, clinicId);
-  },
+deleteScheduleException: async (schedule_exception_id: string, clinicId?: string) => {
+  return apiFetch<any>(
+    `/api/dashboard/schedule-exceptions/${schedule_exception_id}`,
+    { method: 'DELETE' },
+    clinicId
+  );
+},
 
   // 5. CALLBACKS
   getCallbacks: async (status?: string, clinicId?: string) => {
-    const params = new URLSearchParams();
-    if (status) params.append('status', status);
+  const activeClinicId = clinicId || getStoredClinicId();
+  const endpoint = status ? `/api/dashboard/callbacks?status=${status}` : '/api/dashboard/callbacks';
+  return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
+},
 
-    return apiFetch<any>(`/api/dashboard/callbacks?${params.toString()}`, { method: 'GET' }, clinicId);
-  },
-
-  updateCallbackStatus: async (callbackId: string, status: string, clinicId?: string) => {
-    return apiFetch<any>(`/api/dashboard/callbacks/${callbackId}`, {
+updateCallback: async (callbackId: string, payload: { status?: string; notes?: string; is_urgent?: boolean }, clinicId?: string) => {
+  const activeClinicId = clinicId || getStoredClinicId();
+  return apiFetch<any>(
+    `/api/dashboard/callbacks/${callbackId}`,
+    {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
-    }, clinicId);
-  },
+      body: JSON.stringify(payload),
+    },
+    activeClinicId || undefined
+  );
+},
+
+// 5. Settings
+
+getSettings: async (clinicId?: string) => {
+  const activeClinicId = clinicId || getStoredClinicId();
+  return apiFetch<any>('/api/dashboard/settings', { method: 'GET' }, activeClinicId || undefined);
+},
+
+updateSettings: async (payload: any, clinicId?: string) => {
+  const activeClinicId = clinicId || getStoredClinicId();
+  return apiFetch<any>(
+    '/api/dashboard/settings',
+    {
+      method: 'PATCH', // <--- Δοκίμασε POST αντί για PUT
+      body: JSON.stringify(payload),
+    },
+    activeClinicId || undefined
+  );
+},
 
 // 6. BILLING & USAGE
-// 6. BILLING & USAGE
+
 getBilling: async (clinicId?: string) => {
   return apiFetch<any>('/api/dashboard/billing-periods', { method: 'GET' }, clinicId);
 },
 };
+

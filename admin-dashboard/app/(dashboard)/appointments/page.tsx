@@ -195,20 +195,28 @@ export default function AppointmentsPage() {
     setIsCreateOpen(true);
   };
 
+  // Ενημερωμένα Status Badge Styles
   const getStatusBadgeStyles = (status: AppointmentStatus) => {
     switch (status) {
       case 'booked': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'completed': return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'rescheduled': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'expired': return 'bg-gray-100 text-gray-600 border-gray-200';
+      case 'failed': return 'bg-rose-50 text-rose-700 border-rose-200';
+      case 'cancelled': return 'bg-red-50 text-red-700 border-red-200';
       default: return 'bg-slate-50 text-slate-500 border-slate-200';
     }
   };
 
+  // Ενημερωμένα Status Labels (Χωρίς Completed)
   const getStatusLabel = (status: AppointmentStatus) => {
     switch (status) {
       case 'booked': return 'Επιβεβαιώμενο';
       case 'pending': return 'Σε αναμονή';
-      case 'completed': return 'Ολοκληρώθηκε';
+      case 'rescheduled': return 'Επαναπρογραμματισμένο';
+      case 'expired': return 'Έληξε';
+      case 'failed': return 'Απέτυχε';
+      case 'cancelled': return 'Ακυρώθηκε';
       default: return 'Διαθέσιμο';
     }
   };
@@ -323,10 +331,12 @@ export default function AppointmentsPage() {
           </div>
         </div>
         <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 col-span-2 lg:col-span-1">
-          <span className="text-xl sm:text-2xl text-emerald-500 shrink-0">🔄</span>
+          <span className="text-xl sm:text-2xl text-blue-500 shrink-0">🔄</span>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">Συνδεδεμένο</p>
-            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Live Supabase Database</p>
+            <p className="text-xs sm:text-sm font-bold text-blue-600 truncate">
+              {appointments.filter(a => a.status === 'rescheduled').length}
+            </p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-medium truncate">Επαναπρογραμματισμένα</p>
           </div>
         </div>
       </div>
@@ -351,13 +361,15 @@ export default function AppointmentsPage() {
                         className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all gap-2 sm:gap-4 ${
                           appt.status === 'booked' ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50' :
                           appt.status === 'pending' ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50' :
-                          'border-purple-200 bg-purple-50/40 hover:bg-purple-50'
+                          appt.status === 'rescheduled' ? 'border-blue-200 bg-blue-50/40 hover:bg-blue-50' :
+                          'border-slate-200 bg-slate-50'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
                           <div className={`w-1.5 h-6 sm:h-8 rounded-full shrink-0 ${
                             appt.status === 'booked' ? 'bg-emerald-500' :
-                            appt.status === 'pending' ? 'bg-amber-500' : 'bg-purple-500'
+                            appt.status === 'pending' ? 'bg-amber-500' :
+                            appt.status === 'rescheduled' ? 'bg-blue-500' : 'bg-slate-400'
                           }`} />
                           <div className="min-w-0">
                             <p className="text-xs sm:text-sm font-bold text-slate-800 truncate">{getPatientName(appt)}</p>
@@ -419,7 +431,8 @@ export default function AppointmentsPage() {
                             className={`w-full p-1 sm:p-1.5 rounded text-[9px] sm:text-[10px] font-medium border cursor-pointer overflow-hidden ${
                               appt.status === 'booked' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
                               appt.status === 'pending' ? 'bg-amber-50 border-amber-200 text-amber-800' :
-                              'bg-purple-50 border-purple-200 text-purple-800'
+                              appt.status === 'rescheduled' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+                              'bg-slate-50 border-slate-200 text-slate-800'
                             }`}
                           >
                             <div className="font-bold truncate">{getPatientName(appt)}</div>
