@@ -2,64 +2,173 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { api } from '@/services/api';
+import { useClinic } from '@/context/ClinicContext';
 import { Appointment } from '@/types';
-
-// Clinic ID (προσαρμόστε το αν χρειάζεται)
-const CLINIC_ID = 'c93a8020-b5b0-4a18-9d86-af466e5ab86e';
+import CreateAppointmentModal from '@/components/create-appointment-modal';
+import {
+  CalendarDaysIcon,
+  PhoneArrowUpRightIcon,
+  ExclamationTriangleIcon,
+  PlusIcon,
+  ArrowPathIcon,
+  UserIcon,
+} from '@heroicons/react/24/outline';
 
 interface CallbackItem {
-  callback_id: string;
+  callback_id?: string;
+  id?: string;
   caller_name?: string;
+  patient_name?: string;
   phone_normalized?: string;
   phone?: string;
-  status: string;
-  urgency_code: string;
+  status?: string;
+  is_resolved?: boolean;
+  urgency_code?: string;
   created_at?: string;
 }
 
+const GREEK_LABEL_MAP: Record<string, string> = {
+  checkup: 'Εξέταση / Έλεγχος',
+  cleaning: 'Καθαρισμός',
+  filling: 'Σφράγισμα',
+  emergency: 'Έκτακτο',
+  pain: 'Οξύς Πόνος',
+  whitening: 'Λεύκανση',
+  other: 'Άλλο',
+  unknown: 'Γενικό Ραντεβού',
+};
+
+function getLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function DashboardHome() {
+  const { selectedClinic } = useClinic();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [callbacks, setCallbacks] = useState<CallbackItem[]>([]);
+  const [settingsData, setSettingsData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
+    if (!selectedClinic?.id) return;
+
     try {
       setIsLoading(true);
       setError('');
 
-      // 1. Υπολογισμός εύρους για τη σημερινή ημέρα (00:00 έως 23:59)
       const now = new Date();
-      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toISOString();
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toISOString();
+      const todayStr = getLocalDateString(now);
+      const startAt = `${todayStr}T00:00:00.000Z`;
+      const endAt = `${todayStr}T23:59:59.999Z`;
 
-      // 2. Παράλληλη κλήση των APIs για Ραντεβού & Callbacks
-      const [apptsData, callbacksData] = await Promise.all([
-        api.getAppointments(CLINIC_ID, startOfDay, endOfDay).catch(() => []),
-        api.getCallbacks ? api.getCallbacks(CLINIC_ID).catch(() => []) : Promise.resolve([])
+      const [apptsRes, cbCreatedRes, cbPendingRes, settingsRes] = await Promise.all([
+        api.getAppointments({ startAt, endAt }, selectedClinic.id).catch(() => []),
+        api.getCallbacks ? api.getCallbacks('created', selectedClinic.id).catch(() => []) : Promise.resolve([]),
+        api.getCallbacks ? api.getCallbacks('pending', selectedClinic.id).catch(() => []) : Promise.resolve([]),
+        api.getSettings(selectedClinic.id).catch(() => null),
       ]);
 
-      setAppointments(Array.isArray(apptsData) ? apptsData : apptsData?.appointments || []);
-      setCallbacks(Array.isArray(callbacksData) ? callbacksData : callbacksData?.callbacks || []);
+      let loadedAppts: Appointment[] = [];
+      if (apptsRes && Array.isArray(apptsRes.appointments)) {
+        loadedAppts = apptsRes.appointments;
+      } else if (Array.isArray(apptsRes)) {
+        loadedAppts = apptsRes;
+      }
+      setAppointments(loadedAppts);
+
+      const extractList = (res: any) => {
+        if (Array.isArray(res)) return res;
+        if (res && Array.isArray(res.callbacks)) return res.callbacks;
+        if (res && Array.isArray(res.data)) return res.data;
+        return [];
+      };
+
+      const listCreated = extractList(cbCreatedRes);
+      const listPending = extractList(cbPendingRes);
+
+      const combinedMap = new Map();
+      [...listCreated, ...listPending].forEach((item: any) => {
+        const id = item.callback_id || item.id;
+        if (id) combinedMap.set(id, item);
+        else combinedMap.set(JSON.stringify(item), item);
+      });
+
+      const allCallbacks = Array.from(combinedMap.values());
+      setCallbacks(allCallbacks);
+
+      setSettingsData(settingsRes?.settings || settingsRes);
     } catch (err: any) {
       console.error('Error loading dashboard stats:', err);
       setError('Αποτυχία φόρτωσης δεδομένων.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedClinic?.id]);
 
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // --- Υπολογισμός Live Στατιστικών ---
   const activeAppointments = appointments.filter((a: any) => a.status !== 'cancelled');
   const cancelledAppointments = appointments.filter((a: any) => a.status === 'cancelled');
-  const pendingCallbacks = callbacks.filter((c) => c.status === 'created' || c.status === 'pending');
-  const urgentCount = appointments.filter((a: any) => a.urgency_code && a.urgency_code !== 'normal').length;
 
-  // Helper για εμφάνιση ώρας
+  const pendingCallbacks = callbacks
+    .filter((c) => {
+      if (typeof c.is_resolved === 'boolean') return !c.is_resolved;
+      if (!c.status) return true;
+      const st = c.status.toLowerCase();
+      return st !== 'completed' && st !== 'resolved' && st !== 'done' && st !== 'cancelled';
+    })
+    .sort((a, b) => {
+      const aUrgent = a.urgency_code && a.urgency_code !== 'normal' ? 1 : 0;
+      const bUrgent = b.urgency_code && b.urgency_code !== 'normal' ? 1 : 0;
+      if (bUrgent !== aUrgent) return bUrgent - aUrgent;
+
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+
+  const urgentCallbacks = pendingCallbacks.filter((cb: any) => {
+    return cb.is_urgent || cb.urgency === 'high' || cb.urgency_code === 'high' || cb.urgency_code === 'urgent' || cb.callback_reason_code === 'urgent_medical';
+  });
+
+  const formatCallbackDate = (isoString?: string) => {
+    if (!isoString) return '';
+    try {
+      const d = new Date(isoString);
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+
+      const timeStr = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+
+      if (isToday) return `Σήμερα, ${timeStr}`;
+
+      const dateStr = d.toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' });
+      return `${dateStr}, ${timeStr}`;
+    } catch {
+      return '';
+    }
+  };
+
+  const getAppointmentLabel = (typeCode: string) => {
+    if (!typeCode) return 'Γενικό';
+    const preps = settingsData?.appointment_preparation_json || {};
+    const rawPrep = preps[typeCode] || '';
+
+    if (rawPrep.startsWith('[TITLE:')) {
+      const match = rawPrep.match(/^\[TITLE:\s*(.*?)\]/);
+      if (match && match[1]) return match[1];
+    }
+
+    return GREEK_LABEL_MAP[typeCode] || typeCode.replace(/_/g, ' ');
+  };
+
   const formatTime = (isoString: string) => {
     try {
       return new Date(isoString).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
@@ -69,154 +178,156 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 p-2 sm:p-0">
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header Banner */}
-      <div className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
         <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-800">Κέντρο Ελέγχου Ιατρείου</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Ζωντανή επισκόπηση σημερινών ενεργειών & αιτημάτων ασθενών.
+          <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+            {selectedClinic?.name ? `Ιατρείο: ${selectedClinic.name}` : 'Κέντρο Ελέγχου Ιατρείου'}
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Ζωντανή επισκόπηση σημερινών ραντεβού και όλων των εκκρεμών αιτημάτων.
           </p>
         </div>
-        <button
-          onClick={loadDashboardData}
-          disabled={isLoading}
-          className="self-start sm:self-auto px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors flex items-center gap-2"
-        >
-          {isLoading ? '🔄 Ανανέωση...' : '🔄 Ανανέωση Data'}
-        </button>
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+          >
+            <PlusIcon className="w-4 h-4" /> Νέο Ραντεβού
+          </button>
+          <button
+            onClick={loadDashboardData}
+            disabled={isLoading}
+            className="p-2 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors disabled:opacity-50"
+            title="Ανανέωση"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm rounded-xl font-medium">
-          ⚠️ {error}
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2 font-medium">
+          <ExclamationTriangleIcon className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+          {error}
         </div>
       )}
 
-      {/* --- Live KPIs ( Responsive Grid ) --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Κάρτα 1: Σημερινά Ραντεβού */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+      {/* Live KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Σημερινά Ραντεβού</span>
-            <span className="p-2 bg-blue-50 text-blue-600 rounded-lg text-lg">📅</span>
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Σημερινά Ραντεβού</span>
+            <div className="p-2 bg-blue-50 dark:bg-blue-600/15 text-blue-600 dark:text-blue-400 rounded-xl">
+              <CalendarDaysIcon className="w-5 h-5" />
+            </div>
           </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold text-slate-800">
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">
               {isLoading ? '...' : activeAppointments.length}
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
-              {cancelledAppointments.length > 0 ? `+${cancelledAppointments.length} ακυρωμένα` : 'Όλα ενεργά'}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {cancelledAppointments.length > 0 ? `${cancelledAppointments.length} ακυρωμένα` : 'Όλα ενεργά'}
             </p>
           </div>
         </div>
 
-        {/* Κάρτα 2: Εκκρεμή Callbacks */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Επανακλήσεις (Callbacks)</span>
-            <span className="p-2 bg-amber-50 text-amber-600 rounded-lg text-lg">📞</span>
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Εκκρεμή Callbacks</span>
+            <div className="p-2 bg-amber-50 dark:bg-amber-600/15 text-amber-600 dark:text-amber-400 rounded-xl">
+              <PhoneArrowUpRightIcon className="w-5 h-5" />
+            </div>
           </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold text-amber-600">
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
               {isLoading ? '...' : pendingCallbacks.length}
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
-              {pendingCallbacks.length > 0 ? 'Απαιτείται επικοινωνία' : 'Καμία εκκρεμότητα'}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              {pendingCallbacks.length > 0 ? 'Συνολικές εκκρεμότητες' : 'Καμία εκκρεμότητα'}
             </p>
           </div>
         </div>
 
-        {/* Κάρτα 3: Επείγοντα */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs flex flex-col justify-between transition-colors">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Επείγοντα</span>
-            <span className="p-2 bg-rose-50 text-rose-600 rounded-lg text-lg">🚨</span>
-          </div>
-          <div className="mt-4">
-            <div className="text-2xl sm:text-3xl font-extrabold text-rose-600">
-              {isLoading ? '...' : urgentCount}
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Επείγοντα</span>
+            <div className="p-2 bg-rose-50 dark:bg-rose-600/15 text-rose-600 dark:text-rose-400 rounded-xl">
+              <ExclamationTriangleIcon className="w-5 h-5" />
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">Υψηλής προτεραιότητας</p>
           </div>
-        </div>
-
-        {/* Κάρτα 4: Google Calendar Sync */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">In Sync</span>
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-lg">🔄</span>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center gap-1.5 text-sm sm:text-base font-bold text-emerald-600">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Συγχρονισμένο
+          <div className="mt-3">
+            <div className="text-3xl font-extrabold text-rose-600 dark:text-rose-400">
+              {isLoading ? '...' : urgentCallbacks.length}
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
-              Αυτόματος συγχρονισμός 
-            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Υψηλής προτεραιότητας</p>
           </div>
         </div>
       </div>
 
-      {/* --- Main Dashboard Sections ( 2 Columns Layout ) --- */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Αριστερή Στήλη: Πρόγραμμα Σημερινών Ραντεβού (2/3 width) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-            <h3 className="text-sm sm:text-base font-bold text-slate-800">
-              🗓️ Σημερινό Πρόγραμμα Ραντεβού ({appointments.length})
+        {/* Σημερινό Πρόγραμμα */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs p-5 sm:p-6 transition-colors">
+          <div className="flex items-center justify-between border-b border-blue-50 dark:border-slate-800 pb-4 mb-4">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <CalendarDaysIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              Πρόγραμμα Ημέρας ({appointments.length})
             </h3>
-            <span className="text-xs text-slate-400">{new Date().toLocaleDateString('el-GR')}</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
+              {new Date().toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'numeric' })}
+            </span>
           </div>
 
           {isLoading ? (
-            <div className="py-8 text-center text-xs text-slate-400">Φόρτωση ραντεβού...</div>
+            <div className="py-12 text-center text-xs text-slate-400">Φόρτωση προγράμματος...</div>
           ) : appointments.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-500">
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 bg-blue-50/30 dark:bg-slate-800/40 rounded-xl border border-dashed border-blue-100 dark:border-slate-800">
               Δεν υπάρχουν προγραμματισμένα ραντεβού για σήμερα.
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {appointments.map((appt: any) => {
-                const name =
-                  appt.caller_name || appt.patient_name || appt.patient?.name || 'Ανώνυμος Ασθενής';
-                const phone =
-                  appt.phone_normalized || appt.callback_phone_normalized || appt.phone || '-';
+                const name = appt.caller_name || appt.patient_name || appt.patient?.name || 'Ανώνυμος Ασθενής';
+                const phone = appt.phone_normalized || appt.phone || '-';
                 const isCancelled = appt.status === 'cancelled';
+                const label = getAppointmentLabel(appt.appointment_type_code);
 
                 return (
                   <div
-                    key={appt.appointment_id}
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-colors gap-2 sm:gap-4 ${
+                    key={appt.appointment_id || appt.id}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all gap-3 ${
                       isCancelled
-                        ? 'bg-rose-50/40 border-rose-100 text-slate-400'
-                        : 'bg-slate-50/60 hover:bg-slate-50 border-slate-100 text-slate-700'
+                        ? 'bg-rose-50/30 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/50 opacity-60'
+                        : 'bg-blue-50/30 dark:bg-slate-800/50 hover:bg-blue-50/60 dark:hover:bg-slate-800 border-blue-100/60 dark:border-slate-800'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 shadow-2xs">
+                      <div className="px-2.5 py-1 bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 shadow-2xs">
                         {formatTime(appt.start_at)}
                       </div>
                       <div>
-                        <p className={`text-xs sm:text-sm font-bold ${isCancelled ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                        <p className={`text-xs font-bold ${isCancelled ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-800 dark:text-slate-100'}`}>
                           {name}
                         </p>
-                        <p className="text-[11px] text-slate-500">{phone}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                          <UserIcon className="w-3 h-3 text-slate-400 dark:text-slate-500" /> {phone}
+                        </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600">
-                        {appt.appointment_type_code === 'cleaning' ? 'Καθαρισμός' : appt.appointment_type_code || 'Γενικό'}
+                      <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-blue-100 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                        {label}
                       </span>
                       {isCancelled ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300">
                           Ακυρωμένο
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                           Ενεργό
                         </span>
                       )}
@@ -228,56 +339,84 @@ export default function DashboardHome() {
           )}
         </div>
 
-        {/* Δεξιά Στήλη: Εκκρεμότητες Callbacks (1/3 width) */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 flex flex-col justify-between">
+        {/* Εκκρεμή Callbacks */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs p-5 sm:p-6 flex flex-col justify-between transition-colors">
           <div>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <h3 className="text-sm sm:text-base font-bold text-slate-800">📞 Εκκρεμή Callbacks</h3>
-              <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+            <div className="flex items-center justify-between border-b border-blue-50 dark:border-slate-800 pb-4 mb-4">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <PhoneArrowUpRightIcon className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                Όλα τα Εκκρεμή Callbacks
+              </h3>
+              <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 font-bold px-2 py-0.5 rounded-full">
                 {pendingCallbacks.length}
               </span>
             </div>
 
             {isLoading ? (
-              <div className="py-8 text-center text-xs text-slate-400">Φόρτωση...</div>
+              <div className="py-12 text-center text-xs text-slate-400">Φόρτωση...</div>
             ) : pendingCallbacks.length === 0 ? (
-              <div className="py-8 text-center text-xs text-slate-500">
+              <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 bg-blue-50/30 dark:bg-slate-800/40 rounded-xl border border-dashed border-blue-100 dark:border-slate-800">
                 Δεν υπάρχουν εκκρεμή αιτήματα επανάκλησης.
               </div>
             ) : (
-              <div className="space-y-3">
-                {pendingCallbacks.slice(0, 5).map((cb) => (
-                  <div
-                    key={cb.callback_id}
-                    className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">
-                        {cb.caller_name || 'Ασθενής'}
-                      </p>
-                      <p className="text-[11px] text-amber-900 font-medium">
-                        {cb.phone_normalized || cb.phone || '-'}
-                      </p>
+              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                {pendingCallbacks.map((cb, idx) => {
+                  const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
+                  const dateLabel = formatCallbackDate(cb.created_at);
+                  const callerName = cb.caller_name || cb.patient_name || 'Ασθενής';
+                  const phoneNum = cb.phone_normalized || cb.phone || '-';
+
+                  return (
+                    <div
+                      key={cb.callback_id || cb.id || idx}
+                      className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                        isUrgent
+                          ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50'
+                          : 'bg-amber-50/40 dark:bg-amber-950/15 border-amber-200/60 dark:border-amber-900/30'
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                          {callerName}
+                        </p>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium mt-0.5">
+                          {phoneNum}
+                        </p>
+                        {dateLabel && (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{dateLabel}</p>
+                        )}
+                      </div>
+
+                      {isUrgent && (
+                        <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded shrink-0">
+                          ΕΠΕΙΓΟΝ
+                        </span>
+                      )}
                     </div>
-                    {cb.urgency_code !== 'normal' && (
-                      <span className="text-[9px] font-extrabold bg-rose-500 text-white px-1.5 py-0.5 rounded">
-                        ΕΠΕΙΓΟΝ
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 mt-4">
-            <p className="text-[11px] text-slate-400 text-center">
-              Τα callbacks δημιουργούνται αυτόματα από την AI Receptionist όταν ο ασθενής ζητά τηλεφωνική επικοινωνία.
+          <div className="pt-4 border-t border-blue-50 dark:border-slate-800 mt-4">
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center leading-relaxed">
+              Εμφανίζονται όλα τα εκκρεμή callbacks ταξινομημένα κατά προτεραιότητα.
             </p>
           </div>
         </div>
-
       </div>
+
+      {/* Modal Δημιουργίας Ραντεβού */}
+      {isModalOpen && (
+        <CreateAppointmentModal
+          onClose={() => setIsModalOpen(false)}
+          onSuccess={() => {
+            setIsModalOpen(false);
+            loadDashboardData();
+          }}
+        />
+      )}
     </div>
   );
 }

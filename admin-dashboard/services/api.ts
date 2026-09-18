@@ -347,7 +347,7 @@ updateSettings: async (payload: any, clinicId?: string) => {
   return apiFetch<any>(
     '/api/dashboard/settings',
     {
-      method: 'PATCH', // <--- Δοκίμασε POST αντί για PUT
+      method: 'PATCH', 
       body: JSON.stringify(payload),
     },
     activeClinicId || undefined

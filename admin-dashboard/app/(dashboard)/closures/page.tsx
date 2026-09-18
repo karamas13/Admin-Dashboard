@@ -173,17 +173,17 @@ export default function ScheduleExceptionsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header Container */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-800">
+            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
               Εξαιρέσεις Ωραρίου (Schedule Exceptions)
             </h1>
             {isLoading && (
               <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Ορίστε αργίες, απουσίες, κλειστές ώρες ή έκτακτο ωράριο λειτουργίας που επηρεάζουν τη διαθεσιμότητα των ραντεβού.
           </p>
         </div>
@@ -193,7 +193,7 @@ export default function ScheduleExceptionsPage() {
           disabled={isActionDisabled}
           className={`px-4 py-2.5 font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 ${
             isActionDisabled
-              ? 'bg-slate-300 text-slate-500 cursor-not-allowed opacity-70'
+              ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed opacity-70'
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
@@ -203,16 +203,16 @@ export default function ScheduleExceptionsPage() {
       </div>
 
       {error && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium">
+        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs rounded-xl font-medium">
           ⚠️ {error}
         </div>
       )}
 
       {/* Exceptions List */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
-            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-100">
+            <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-800">
               <tr>
                 <th className="p-3.5">Τύπος</th>
                 <th className="p-3.5">Αιτιολογία</th>
@@ -220,10 +220,10 @@ export default function ScheduleExceptionsPage() {
                 <th className="p-3.5 text-right">Ενέργειες</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400">
+                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500">
                     Φόρτωση δεδομένων...
                   </td>
                 </tr>
@@ -233,28 +233,28 @@ export default function ScheduleExceptionsPage() {
                   const isClosedEffect = item.availability_effect === 'closed';
 
                   return (
-                    <tr key={itemId} className="hover:bg-slate-50/60 transition-colors">
+                    <tr key={itemId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="p-3.5">
                         <span
                           className={`px-2 py-1 font-bold text-[10px] uppercase rounded border ${
                             isClosedEffect
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
+                              : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60'
                           }`}
                         >
                           {isClosedEffect ? 'Κλειστό / Απουσία' : 'Extra Ωράριο'}
                         </span>
                       </td>
-                      <td className="p-3.5 font-bold text-slate-800">
+                      <td className="p-3.5 font-bold text-slate-800 dark:text-slate-100">
                         {getReasonLabel(item.reason_code)}
-                        {item.note && <p className="text-[11px] font-normal text-slate-500">{item.note}</p>}
+                        {item.note && <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400">{item.note}</p>}
                       </td>
                       <td className="p-3.5 font-medium">{formatDateRange(item)}</td>
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => handleDeleteException(itemId)}
                           disabled={isDeleting === itemId || isActionDisabled}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -264,7 +264,7 @@ export default function ScheduleExceptionsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400">
+                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500">
                     Δεν έχουν καταχωρηθεί εξαιρέσεις ωραρίου.
                   </td>
                 </tr>
@@ -277,13 +277,13 @@ export default function ScheduleExceptionsPage() {
       {/* --- ADD EXCEPTION MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-blue-600" />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 Προσθήκη Νέας Εξαίρεσης
               </h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold">
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold">
                 ✕
               </button>
             </div>
@@ -291,7 +291,7 @@ export default function ScheduleExceptionsPage() {
             <form onSubmit={handleCreateException} className="space-y-4 text-xs">
               {/* Availability Effect */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Τύπος Εξαίρεσης</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Τύπος Εξαίρεσης</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -301,8 +301,8 @@ export default function ScheduleExceptionsPage() {
                     }}
                     className={`p-2 rounded-xl font-semibold border ${
                       availabilityEffect === 'closed'
-                        ? 'bg-rose-50 border-rose-300 text-rose-700'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                        ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                     }`}
                   >
                     🚫 Κλείσιμο / Απουσία
@@ -315,8 +315,8 @@ export default function ScheduleExceptionsPage() {
                     }}
                     className={`p-2 rounded-xl font-semibold border ${
                       availabilityEffect === 'open'
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                        : 'bg-slate-50 border-slate-200 text-slate-600'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                     }`}
                   >
                     🟢 Extra Ωράριο
@@ -326,11 +326,11 @@ export default function ScheduleExceptionsPage() {
 
               {/* Reason Code */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Αιτιολογία</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Αιτιολογία</label>
                 <select
                   value={reasonCode}
                   onChange={(e) => setReasonCode(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800 outline-none font-medium"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-medium"
                 >
                   {availabilityEffect === 'closed' ? (
                     <>
@@ -353,9 +353,9 @@ export default function ScheduleExceptionsPage() {
                   id="allDayCheck"
                   checked={isAllDay}
                   onChange={(e) => setIsAllDay(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-slate-300"
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
                 />
-                <label htmlFor="allDayCheck" className="font-semibold text-slate-700 cursor-pointer">
+                <label htmlFor="allDayCheck" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
                   Ολόκληρη Ημέρα (Full-Day)
                 </label>
               </div>
@@ -363,48 +363,48 @@ export default function ScheduleExceptionsPage() {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Ημ. Έναρξης</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ημ. Έναρξης</label>
                   <input
                     type="date"
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Ημ. Λήξης</label>
+                  <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ημ. Λήξης</label>
                   <input
                     type="date"
                     required
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100"
                   />
                 </div>
               </div>
 
               {/* Times (Only if NOT All-Day) */}
               {!isAllDay && (
-                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Ώρα Έναρξης</label>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ώρα Έναρξης</label>
                     <input
                       type="time"
                       required
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Ώρα Λήξης</label>
+                    <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ώρα Λήξης</label>
                     <input
                       type="time"
                       required
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full p-2 border border-slate-200 rounded-lg bg-white"
+                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
                     />
                   </div>
                 </div>
@@ -412,13 +412,13 @@ export default function ScheduleExceptionsPage() {
 
               {/* Note */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Σημείωση (Προαιρετικό)</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Σημείωση (Προαιρετικό)</label>
                 <input
                   type="text"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="π.χ. Συντήρηση εξοπλισμού"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-800"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
               </div>
 
@@ -426,7 +426,7 @@ export default function ScheduleExceptionsPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 font-semibold"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold"
                 >
                   Ακύρωση
                 </button>
