@@ -272,7 +272,7 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
               value={startAt}
               onChange={(e) => setStartAt(e.target.value)}
               required
-              className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+              className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 scheme-light dark:scheme-dark"
             />
           </div>
 

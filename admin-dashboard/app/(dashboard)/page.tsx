@@ -359,7 +359,7 @@ export default function DashboardHome() {
                 Δεν υπάρχουν εκκρεμή αιτήματα επανάκλησης.
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-105 overflow-y-auto pr-1">
                 {pendingCallbacks.map((cb, idx) => {
                   const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
                   const dateLabel = formatCallbackDate(cb.created_at);
