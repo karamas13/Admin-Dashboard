@@ -60,13 +60,13 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-xs">
             <span>🫁</span>
           </div>
-          <span className="text-sm font-bold truncate max-w-[140px] sm:max-w-[200px]">
+          <span className="text-sm font-bold truncate max-w-35 sm:max-w-50">
             {selectedClinic?.name || 'Medical Clinic'}
           </span>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <ThemeToggle />
-          <div className="max-w-[130px] sm:max-w-[180px]">
+          <div className="max-w-32.5 sm:max-w-45">
             <ClinicSwitcher />
           </div>
           <button 
@@ -98,19 +98,19 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
       `}>
         <div>
           {/* Sidebar Header */}
-          <div className={`flex items-center border-b border-blue-100 d           ark:border-slate-800 h-16 transition-all duration-300 ${
-             isSidebarCollapsed ? 'justify-center px-2' : 'justify-between p-4 sm:           p-5'
+          <div className={`flex items-center border-b border-blue-100 dark:border-slate-800 h-16 transition-all duration-300 ${
+             isSidebarCollapsed ? 'justify-center px-2' : 'justify-between sm:p-5'
            }`}>           
              <div className="flex items-center gap-3 overflow-hidden">           
-               <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center ju           stify-center text-white font-bold shrink-0 shadow-xs">
+               <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-xs">
                  <span>🫁</span>           
                </div>           
                {!isSidebarCollapsed && (           
                  <div className="truncate transition-opacity duration-200">           
-                   <h2 className="text-sm font-bold text-slate-900 dark:text-white            truncate">
+                   <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                      {selectedClinic?.name || 'Medical Dashboard'}           
                    </h2>           
-                   <p className="text-[11px] text-slate-500 dark:text-slate-400 ca           pitalize truncate">
+                   <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize truncate">
                      Ρόλος: {selectedClinic?.role || 'Staff'}           
                    </p>           
                  </div>           
