@@ -6,6 +6,7 @@ import CreateAppointmentModal from '@/components/create-appointment-modal';
 import { Appointment, AppointmentStatus } from '@/types';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
+import { useDashboard } from '@/context/DashboardContext';
 import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
 
 const DEFAULT_TIME_SLOTS = [
@@ -27,20 +28,35 @@ const GREEK_LABEL_MAP: Record<string, string> = {
 
 export default function AppointmentsPage() {
   const { selectedClinic } = useClinic();
+  const { settings, fetchSettings, fetchAppointments: fetchContextAppointments, appointments: contextAppointments } = useDashboard(); 
+  
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
 
-  // Ρυθμίσεις Ωραρίου & Slots
-  const [workingHours, setWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>>>({});
-  const [slotInterval, setSlotInterval] = useState<number>(30);
   const [dynamicTimeSlots, setDynamicTimeSlots] = useState<string[]>(DEFAULT_TIME_SLOTS);
-  const [prepsData, setPrepsData] = useState<Record<string, string>>({});
+
+  const actualSettings = settings?.settings || settings || {};
+  const workingHours = (actualSettings.working_hours_json && typeof actualSettings.working_hours_json === 'object') ? actualSettings.working_hours_json : {};
+  const slotInterval = Number(actualSettings.slot_interval_minutes) || 30;
+  const prepsData = actualSettings.appointment_preparation_json || {};
+
+  useEffect(() => {
+    if (selectedClinic?.id) {
+      fetchSettings();
+      fetchContextAppointments();
+    }
+  }, [selectedClinic?.id, fetchSettings, fetchContextAppointments]);
+
+  useEffect(() => {
+    if (contextAppointments) {
+      setAppointments(contextAppointments);
+    }
+  }, [contextAppointments]);
 
   const formatDateString = (date: Date) => {
     const offset = date.getTimezoneOffset();
@@ -48,34 +64,6 @@ export default function AppointmentsPage() {
     return adjustedDate.toISOString().split('T')[0];
   };
 
-  // 1. Φόρτωση Ρυθμίσεων Κλινικής (Ωράριο, Slots, Τύποι)
-  useEffect(() => {
-    async function loadClinicSettings() {
-      if (!selectedClinic?.id) return;
-      try {
-        const res = await api.getSettings(selectedClinic.id);
-        const s = res?.settings || res;
-
-        if (s) {
-          if (s.working_hours_json && typeof s.working_hours_json === 'object') {
-            setWorkingHours(s.working_hours_json);
-          }
-          if (s.slot_interval_minutes) {
-            setSlotInterval(Number(s.slot_interval_minutes) || 30);
-          }
-          if (s.appointment_preparation_json) {
-            setPrepsData(s.appointment_preparation_json);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load settings for appointments calendar:', err);
-      }
-    }
-
-    loadClinicSettings();
-  }, [selectedClinic?.id]);
-
-  // 2. Δυναμικός Υπολογισμός Time Slots βάσει του Ωραρίου
   useEffect(() => {
     const activeDays = Object.values(workingHours).flat();
     if (activeDays.length === 0) {
@@ -86,7 +74,7 @@ export default function AppointmentsPage() {
     let minStartMinutes = 24 * 60;
     let maxEndMinutes = 0;
 
-    activeDays.forEach((slot) => {
+    activeDays.forEach((slot: any) => {
       if (!slot.start || !slot.end) return;
       const [sh, sm] = slot.start.split(':').map(Number);
       const [eh, em] = slot.end.split(':').map(Number);
@@ -116,18 +104,17 @@ export default function AppointmentsPage() {
     setDynamicTimeSlots(generatedSlots.length > 0 ? generatedSlots : DEFAULT_TIME_SLOTS);
   }, [workingHours, slotInterval]);
 
-  // Helper: Έλεγχος αν μια ώρα είναι εντός του ωραρίου λειτουργίας για συγκεκριμένη ημέρα
   const isTimeWithinWorkingHours = (targetDate: Date, timeStr: string): boolean => {
-    const dayNum = targetDate.getDay();
-    const dayKey = dayNum === 0 ? '7' : String(dayNum);
+    const dayNum = targetDate.getDay(); 
+    const dayKey = String(dayNum); 
 
-    const daySlots = workingHours[dayKey];
+    const daySlots: any = workingHours[dayKey];
     if (!daySlots || daySlots.length === 0) return false;
 
     const [h, m] = timeStr.split(':').map(Number);
     const timeVal = h * 60 + m;
 
-    return daySlots.some((slot) => {
+    return daySlots.some((slot: any) => {
       const [sh, sm] = slot.start.split(':').map(Number);
       const [eh, em] = slot.end.split(':').map(Number);
       const startVal = sh * 60 + sm;
@@ -211,45 +198,6 @@ export default function AppointmentsPage() {
 
   const daysOfWeek = getDaysOfWeek(currentDate);
 
-  const loadAppointments = async () => {
-    try {
-      setIsLoading(true);
-
-      const dayStr = formatDateString(currentDate);
-      let startAt = '';
-      let endAt = '';
-
-      if (viewMode === 'day') {
-        startAt = `${dayStr}T00:00:00.000Z`;
-        endAt = `${dayStr}T23:59:59.999Z`;
-      } else {
-        const currentDaysOfWeek = getDaysOfWeek(currentDate);
-        startAt = `${currentDaysOfWeek[0].isoString}T00:00:00.000Z`;
-        endAt = `${currentDaysOfWeek[6].isoString}T23:59:59.999Z`;
-      }
-
-      const data = await api.getAppointments({ startAt, endAt }, selectedClinic?.id);
-
-      if (data && Array.isArray(data.appointments)) {
-        setAppointments(data.appointments);
-      } else if (Array.isArray(data)) {
-        setAppointments(data);
-      } else {
-        setAppointments([]);
-      }
-    } catch (err) {
-      console.error('Σφάλμα κατά τη φόρτωση των ραντεβού:', err);
-      setAppointments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadAppointments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, viewMode, selectedClinic?.id]);
-
   const handlePrev = () => {
     const newDate = new Date(currentDate);
     if (viewMode === 'day') {
@@ -311,18 +259,18 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-4 md:space-y-6 max-w-full overflow-hidden">
       {/* Top Controls Bar */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 bg-white dark:bg-slate-900 p-3 md:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="flex items-center justify-between sm:justify-start gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg w-fit">
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
             <button 
               onClick={() => setViewMode('day')}
-              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'day' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === 'day' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
             >
               Ημέρα
             </button>
             <button 
               onClick={() => setViewMode('week')}
-              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'week' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === 'week' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
             >
               Εβδομάδα
             </button>
@@ -330,7 +278,7 @@ export default function AppointmentsPage() {
 
           <button 
             onClick={() => handleOpenCreate()}
-            className="sm:hidden px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+            className="sm:hidden px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
           >
             + Νέο
           </button>
@@ -338,45 +286,42 @@ export default function AppointmentsPage() {
 
         {/* Navigation & Dates */}
         <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3">
-          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
+          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
             <button 
               onClick={handlePrev}
-              className="flex items-center justify-center p-1.5 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold"
+              className="flex items-center justify-center p-2 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold"
               title="Προηγούμενο"
             >
-              <BsChevronBarLeft className='text-lg sm:text-xl sm:mr-1'/> 
+              <BsChevronBarLeft className='text-base sm:text-lg sm:mr-1'/> 
               <span className="hidden sm:inline">{viewMode === 'day' ? 'Προηγούμενη Ημέρα' : 'Προηγούμενη Εβδομάδα'}</span>
             </button>
             <button 
               onClick={handleNext}
-              className="flex items-center justify-center p-1.5 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs font-bold"
+              className="flex items-center justify-center p-2 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs font-bold"
               title="Επόμενο"
             >
               <span className="hidden sm:inline">{viewMode === 'day' ? 'Επόμενη Ημέρα' : 'Επόμενη Εβδομάδα'}</span>
-              <BsChevronBarRight className='text-lg sm:text-xl sm:ml-1'/>
+              <BsChevronBarRight className='text-base sm:text-lg sm:ml-1'/>
             </button>
           </div>
 
-          <div className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200 text-center capitalize flex items-center justify-center gap-1.5 min-w-35 sm:min-w-45">
+          <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 text-center capitalize flex items-center justify-center gap-1.5 min-w-[130px] sm:min-w-[170px]">
             {viewMode === 'day' 
               ? currentDate.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })
               : `${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
             }
-            {isLoading && (
-              <div className="w-3 h-3 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin shrink-0" />
-            )}
           </div>
 
           <div className="flex items-center gap-2 ml-auto sm:ml-0">
             <button 
               onClick={handleToday}
-              className="px-2.5 sm:px-3 py-1.5 text-xs font-medium border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg"
+              className="px-3 py-1.5 text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors"
             >
               Σήμερα
             </button>
             <button 
               onClick={() => handleOpenCreate()}
-              className="hidden sm:block px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+              className="hidden sm:block px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors"
             >
               + Νέο Ραντεβού
             </button>
@@ -385,38 +330,38 @@ export default function AppointmentsPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
           <span className="text-xl sm:text-2xl shrink-0">📅</span>
           <div className="min-w-0">
-            <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
+            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
               {activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length}
             </p>
             <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Ενεργά Ραντεβού</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
           <span className="text-xl sm:text-2xl shrink-0">🕒</span>
           <div className="min-w-0">
-            <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
+            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
               {Math.max(0, dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length - activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length)}
             </p>
             <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Διαθέσιμα Slots</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
           <span className="text-xl sm:text-2xl shrink-0">❌</span>
           <div className="min-w-0">
-            <p className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
+            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
               {appointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate)) && a.status === 'cancelled').length}
             </p>
             <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Ακυρώσεις</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3 col-span-2 lg:col-span-1">
+        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3 col-span-2 lg:col-span-1">
           <span className="text-xl sm:text-2xl text-blue-500 shrink-0">🔄</span>
           <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-bold text-blue-600 dark:text-blue-400 truncate">
+            <p className="text-sm sm:text-xl font-bold text-blue-600 dark:text-blue-400 truncate">
               {appointments.filter(a => a.status === 'rescheduled').length}
             </p>
             <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Επαναπρογραμματισμένα</p>
@@ -426,7 +371,7 @@ export default function AppointmentsPage() {
 
       {/* Day View */}
       {viewMode === 'day' ? (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {dynamicTimeSlots.map((time) => {
               const targetDayStr = formatDateString(currentDate);
@@ -436,23 +381,23 @@ export default function AppointmentsPage() {
               return (
                 <div 
                   key={time} 
-                  className={`flex transition-colors ${!isOpenSlot && !appt ? 'bg-slate-100/60 dark:bg-slate-950/60' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'}`}
+                  className={`flex transition-colors ${!isOpenSlot && !appt ? 'bg-slate-50/60 dark:bg-slate-950/60' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'}`}
                 >
-                  <div className="w-16 sm:w-24 px-2 sm:px-4 py-3 text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center bg-slate-50/30 dark:bg-slate-900/50 shrink-0">
+                  <div className="w-14 sm:w-20 md:w-24 px-1.5 sm:px-3 py-3 text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center bg-slate-50/40 dark:bg-slate-900/50 shrink-0">
                     {time}
                   </div>
-                  <div className="flex-1 p-1.5 sm:p-2 min-h-14 flex items-center overflow-hidden">
+                  <div className="flex-1 p-1.5 sm:p-2 min-h-[52px] flex items-center overflow-hidden">
                     {appt ? (
                       <div 
                         onClick={() => setSelectedAppointment(appt)}
-                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all gap-2 sm:gap-4 ${
+                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-xl border cursor-pointer hover:shadow-xs transition-all gap-2 sm:gap-4 ${
                           appt.status === 'booked' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/50' :
                           appt.status === 'pending' ? 'border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 hover:bg-amber-50 dark:hover:bg-amber-950/50' :
                           appt.status === 'rescheduled' ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/30 hover:bg-blue-50 dark:hover:bg-blue-950/50' :
                           'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
                           <div className={`w-1.5 h-6 sm:h-8 rounded-full shrink-0 ${
                             appt.status === 'booked' ? 'bg-emerald-500' :
                             appt.status === 'pending' ? 'bg-amber-500' :
@@ -466,8 +411,8 @@ export default function AppointmentsPage() {
                           </div>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 border-t sm:border-0 border-slate-200/40 dark:border-slate-700/60 pt-1.5 sm:pt-0">
-                          <span className="text-[11px] sm:text-xs font-medium text-slate-600 dark:text-slate-400 truncate">{getPatientPhone(appt)}</span>
-                          <span className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border font-semibold ${getStatusBadgeStyles(appt.status)}`}>
+                          <span className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 truncate">{getPatientPhone(appt)}</span>
+                          <span className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border font-bold ${getStatusBadgeStyles(appt.status)}`}>
                             {getStatusLabel(appt.status)}
                           </span>
                         </div>
@@ -475,12 +420,12 @@ export default function AppointmentsPage() {
                     ) : isOpenSlot ? (
                       <button 
                         onClick={() => handleOpenCreate(targetDayStr, time)}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 border border-dashed border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 rounded-lg transition-all"
+                        className="w-full text-left px-3 sm:px-4 py-2 text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 border border-dashed border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 rounded-xl transition-all"
                       >
                         + <span className="hidden sm:inline">Διαθέσιμο ραντεβού</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-600 italic px-3 sm:px-4">
+                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-600 italic px-2 sm:px-4">
                         Εκτός Ωραρίου
                       </span>
                     )}
@@ -492,15 +437,15 @@ export default function AppointmentsPage() {
         </div>
       ) : (
         /* Week View */
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-x-auto">
-          <div className="min-w-175">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-x-auto">
+          <div className="min-w-[700px]">
             <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
               <div className="p-2 sm:p-3 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">
                 Ώρα
               </div>
               {daysOfWeek.map((day) => {
                 const dayNum = day.dateObject.getDay();
-                const dayKey = dayNum === 0 ? '7' : String(dayNum);
+                const dayKey = String(dayNum);
                 const isDayClosed = !workingHours[dayKey] || workingHours[dayKey].length === 0;
 
                 return (
@@ -528,14 +473,14 @@ export default function AppointmentsPage() {
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-12.5 sm:min-h-15 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center ${
-                          !isOpenSlot && !appt ? 'bg-slate-200/40 dark:bg-slate-950/50' : 'bg-white dark:bg-slate-900'
+                        className={`p-1 min-h-[50px] sm:min-h-[60px] border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center ${
+                          !isOpenSlot && !appt ? 'bg-slate-100/40 dark:bg-slate-950/50' : 'bg-white dark:bg-slate-900'
                         }`}
                       >
                         {appt ? (
                           <div 
                             onClick={() => setSelectedAppointment(appt)}
-                            className={`w-full p-1 sm:p-1.5 rounded text-[9px] sm:text-[10px] font-medium border cursor-pointer overflow-hidden ${
+                            className={`w-full p-1 sm:p-1.5 rounded-lg text-[9px] sm:text-[10px] font-medium border cursor-pointer overflow-hidden ${
                               appt.status === 'booked' ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200' :
                               appt.status === 'pending' ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200' :
                               appt.status === 'rescheduled' ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200' :
@@ -568,8 +513,8 @@ export default function AppointmentsPage() {
         <AppointmentDetailsPanel 
           appointment={selectedAppointment} 
           onClose={() => setSelectedAppointment(null)} 
-          onStateChange={loadAppointments}
-        />       
+          onStateChange={fetchContextAppointments}
+        />        
       )}
 
       {isCreateOpen && (
@@ -583,7 +528,7 @@ export default function AppointmentsPage() {
           onSuccess={() => {
             setIsCreateOpen(false);
             setSelectedSlot(null);
-            loadAppointments();
+            fetchContextAppointments(true);
           }} 
         />
       )}

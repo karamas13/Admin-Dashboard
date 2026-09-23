@@ -270,17 +270,37 @@ createAppointment: async (payload: any, clinicId?: string) => {
   // 4. CLOSURES
 
 
-  getScheduleExceptions: async (startsAt?: string, endsAt?: string, clinicId?: string) => {
-  const params = new URLSearchParams();
-  if (startsAt) params.append('starts_at', startsAt);
-  if (endsAt) params.append('ends_at', endsAt);
+  getScheduleExceptions: async (
+    startsAtOrParams?: string | { startsAt?: string; endsAt?: string; clinicId?: string },
+    endsAtParam?: string,
+    clinicIdParam?: string
+  ) => {
+    let startsAt: string | undefined;
+    let endsAt: string | undefined;
+    let clinicId: string | undefined;
 
-  const activeClinicId = clinicId || getStoredClinicId();
-  const endpoint = `/api/dashboard/schedule-exceptions${params.toString() ? `?${params.toString()}` : ''}`;
+    if (typeof startsAtOrParams === 'object' && startsAtOrParams !== null) {
+      startsAt = startsAtOrParams.startsAt;
+      endsAt = startsAtOrParams.endsAt;
+      clinicId = startsAtOrParams.clinicId;
+    } else {
+      startsAt = startsAtOrParams;
+      endsAt = endsAtParam;
+      clinicId = clinicIdParam;
+    }
 
-  const data = await apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
-  return Array.isArray(data) ? data : (data?.schedule_exceptions || []);
-},
+    const activeClinicId = clinicId || getStoredClinicId();
+    const params = new URLSearchParams();
+
+    if (startsAt) params.append('starts_at', startsAt);
+    if (endsAt) params.append('ends_at', endsAt);
+
+    const queryString = params.toString();
+    const endpoint = `/api/dashboard/schedule-exceptions${queryString ? `?${queryString}` : ''}`;
+
+    const data = await apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
+    return Array.isArray(data) ? data : (data?.schedule_exceptions || data?.closures || []);
+  },
 
 createScheduleException: async (payload: any, clinicId?: string) => {
   const activeClinicId = clinicId || payload?.clinic_id || getStoredClinicId();

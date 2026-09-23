@@ -12,8 +12,6 @@ import {
   TrashIcon,
   CheckCircleIcon,
   ClockIcon,
-  SunIcon,
-  MoonIcon,
 } from '@heroicons/react/24/outline';
 
 const DAYS_OF_WEEK = [
@@ -78,17 +76,6 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-
-  // State για το Dark Mode
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  useEffect(() => {
-    // Έλεγχος αρχικού theme από το DOM ή το system preference
-    if (document.documentElement.classList.contains('dark')) {
-      setIsDarkMode(true);
-    }
-  }, []);
-
 
   // 1. Γενικές Ρυθμίσεις & Ωράριο
   const [clinicName, setClinicName] = useState('');
@@ -242,8 +229,8 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6 animate-pulse max-w-4xl mx-auto dark:bg-slate-900 min-h-screen">
-        <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded"></div>
+      <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-4xl mx-auto dark:bg-slate-950 min-h-screen">
+        <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
         <div className="h-12 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
         <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
       </div>
@@ -251,14 +238,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto transition-colors duration-200">
+    <div className="space-y-4 sm:space-y-6 max-w-4xl mx-auto transition-colors duration-200">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Ρυθμίσεις Κλινικής</h1>      
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Ρυθμίσεις Κλινικής</h1>      
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Διαχειριστείτε το ωράριο, τους τύπους ραντεβού, τις οδηγίες και τις απαντήσεις της AI Receptionist.
           </p>
         </div>
@@ -267,7 +252,7 @@ export default function SettingsPage() {
           type="button"
           disabled={isSaving}
           onClick={handleSave}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors disabled:opacity-50"
+          className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-50 text-center"
         >
           {isSaving ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}
         </button>
@@ -277,61 +262,64 @@ export default function SettingsPage() {
       {successMsg && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2">
           <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          {successMsg}
+          <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2">
           <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-          {errorMsg}
+          <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold gap-1">
+      {/* Responsive Navigation Tabs */}
+      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold overflow-x-auto whitespace-nowrap max-w-full">
         <button
           onClick={() => setActiveTab('general')}
-          className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
             activeTab === 'general'
               ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          <BuildingOfficeIcon className="w-4 h-4" /> Γενικά & Ωράριο
+          <BuildingOfficeIcon className="w-4 h-4 shrink-0" />
+          <span>Γενικά & Ωράριο</span>
         </button>
         <button
           onClick={() => setActiveTab('appointment_types')}
-          className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
             activeTab === 'appointment_types'
               ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          <CalendarDaysIcon className="w-4 h-4" /> Τύποι Ραντεβού
+          <CalendarDaysIcon className="w-4 h-4 shrink-0" />
+          <span>Τύποι Ραντεβού</span>
         </button>
         <button
           onClick={() => setActiveTab('faqs')}
-          className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
             activeTab === 'faqs'
               ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
-          <QuestionMarkCircleIcon className="w-4 h-4" /> Συχνές Ερωτήσεις (FAQs)
+          <QuestionMarkCircleIcon className="w-4 h-4 shrink-0" />
+          <span>Συχνές Ερωτήσεις (FAQs)</span>
         </button>
       </div>
 
       {/* TAB 1: GENERAL & WORKING HOURS */}
       {activeTab === 'general' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6 text-xs">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Όνομα Κλινικής</label>
               <input
                 type="text"
                 value={clinicName}
                 onChange={(e) => setClinicName(e.target.value)}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
               />
             </div>
             <div>
@@ -340,7 +328,7 @@ export default function SettingsPage() {
                 type="text"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
               />
             </div>
             <div>
@@ -349,7 +337,7 @@ export default function SettingsPage() {
                 type="number"
                 value={slotInterval}
                 onChange={(e) => setSlotInterval(Number(e.target.value))}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
               />
             </div>
             <div>
@@ -358,7 +346,7 @@ export default function SettingsPage() {
                 type="number"
                 value={minNotice}
                 onChange={(e) => setMinNotice(Number(e.target.value))}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors"
+                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
               />
             </div>
           </div>
@@ -366,7 +354,7 @@ export default function SettingsPage() {
           {/* Ωράριο Λειτουργίας */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-1.5 mb-3">
-              <ClockIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <ClockIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
               <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Εβδομαδιαίο Ωράριο Λειτουργίας</h3>
             </div>
             <div className="space-y-2">
@@ -378,24 +366,27 @@ export default function SettingsPage() {
                 return (
                   <div
                     key={day.id}
-                    className="flex items-center justify-between p-3 bg-slate-50/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-colors gap-2 sm:gap-4"
                   >
-                    <div className="flex items-center gap-3 w-32">
+                    <div className="flex items-center gap-3">
                       <input
                         type="checkbox"
+                        id={`day_check_${day.id}`}
                         checked={isOpen}
                         onChange={(e) => {
                           const updated = { ...workingHours };
                           updated[day.id] = e.target.checked ? [{ start: '09:00', end: '17:00' }] : [];
                           setWorkingHours(updated);
                         }}
-                        className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+                        className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer"
                       />
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">{day.label}</span>
+                      <label htmlFor={`day_check_${day.id}`} className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                        {day.label}
+                      </label>
                     </div>
 
                     {isOpen ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pl-7 sm:pl-0">
                         <input
                           type="time"
                           value={currentSlot.start}
@@ -406,7 +397,7 @@ export default function SettingsPage() {
                           }}
                           className="p-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-100"
                         />
-                        <span className="text-slate-400 font-bold">έως</span>
+                        <span className="text-slate-400 font-bold text-xs">έως</span>
                         <input
                           type="time"
                           value={currentSlot.end}
@@ -419,7 +410,9 @@ export default function SettingsPage() {
                         />
                       </div>
                     ) : (
-                      <span className="text-slate-400 dark:text-slate-500 font-medium italic">Κλειστά</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-medium italic pl-7 sm:pl-0">
+                        Κλειστά
+                      </span>
                     )}
                   </div>
                 );
@@ -431,8 +424,8 @@ export default function SettingsPage() {
 
       {/* TAB 2: APPOINTMENT TYPES */}
       {activeTab === 'appointment_types' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
-          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Τύποι Ραντεβού & Διάρκεια</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
@@ -442,18 +435,19 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={addType}
-              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-lg flex items-center gap-1 transition-colors"
+              className="px-3 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto"
             >
-              <PlusIcon className="w-4 h-4" /> Προσθήκη Τύπου
+              <PlusIcon className="w-4 h-4 shrink-0" /> 
+              <span>Προσθήκη Τύπου</span>
             </button>
           </div>
 
           <div className="space-y-4">
             {types.map((t) => (
-              <div key={t.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
-                    <div className="md:col-span-2">
+              <div key={t.id} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-3">
+                <div className="flex items-start justify-between gap-2 sm:gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                    <div className="sm:col-span-2">
                       <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Τίτλος Ραντεβού</label>
                       <input
                         type="text"
@@ -483,7 +477,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => removeType(t.id)}
-                    className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors mt-6"
+                    className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors mt-6 shrink-0"
                     title="Διαγραφή"
                   >
                     <TrashIcon className="w-4 h-4" />
@@ -502,7 +496,7 @@ export default function SettingsPage() {
                       const val = e.target.value;
                       setTypes((prev) => prev.map((item) => (item.id === t.id ? { ...item, prep: val } : item)));
                     }}
-                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none"
                   />
                 </div>
               </div>
@@ -513,8 +507,8 @@ export default function SettingsPage() {
 
       {/* TAB 3: FAQS */}
       {activeTab === 'faqs' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 text-xs">
-          <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Συχνές Ερωτήσεις (FAQs)</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
@@ -524,15 +518,16 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={addFaq}
-              className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-lg flex items-center gap-1 transition-colors"
+              className="px-3 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto"
             >
-              <PlusIcon className="w-4 h-4" /> Προσθήκη Ερώτησης
+              <PlusIcon className="w-4 h-4 shrink-0" /> 
+              <span>Προσθήκη Ερώτησης</span>
             </button>
           </div>
 
           <div className="space-y-3">
             {faqs.map((f, idx) => (
-              <div key={f.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-2">
+              <div key={f.id} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-700 dark:text-slate-300">Ερώτηση #{idx + 1}</span>
                   <button
@@ -561,7 +556,7 @@ export default function SettingsPage() {
                     const val = e.target.value;
                     setFaqs((prev) => prev.map((item) => (item.id === f.id ? { ...item, answer: val } : item)));
                   }}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-100 outline-none"
                 />
               </div>
             ))}

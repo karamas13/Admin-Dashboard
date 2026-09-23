@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { api } from '@/services/api';
-import { TrashIcon, PlusIcon, CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, PlusIcon, CalendarIcon, ArchiveBoxIcon } from '@heroicons/react/24/outline';
 import { useClinic } from '@/context/ClinicContext';
+import { useDashboard } from '@/context/DashboardContext';
 
 export interface ScheduleException {
   id?: string;
@@ -31,14 +32,13 @@ const getReasonLabel = (code: string) => {
 };
 
 export default function ScheduleExceptionsPage() {
-  const [exceptions, setExceptions] = useState<ScheduleException[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
   const { isReadOnly, isOwner, selectedClinic } = useClinic();
+  const { closures: exceptions, loadingTab, fetchClosures } = useDashboard();
+  
+  const isLoading = loadingTab === 'closures';
   const isActionDisabled = isReadOnly || !isOwner;
 
-  // Modals state
+  const [showHistory, setShowHistory] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
@@ -53,33 +53,14 @@ export default function ScheduleExceptionsPage() {
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Φόρτωση Exceptions
-  const loadExceptions = useCallback(async () => {
-    if (!selectedClinic?.id) return;
+  // Εναλλαγή εμφάνισης ιστορικού
+  const toggleHistory = async () => {
+    const nextState = !showHistory;
+    setShowHistory(nextState);
+    await fetchClosures(true, nextState);
+  };
 
-    try {
-      setIsLoading(true);
-      setError('');
-
-      const now = new Date();
-      const startAt = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).toISOString();
-      const endAt = new Date(now.getFullYear(), now.getMonth() + 3, 0, 23, 59, 59).toISOString();
-
-      const list = await api.getScheduleExceptions(startAt, endAt, selectedClinic.id);
-      setExceptions(list || []);
-    } catch (err: any) {
-      console.error('Σφάλμα κατά τη φόρτωση των schedule exceptions:', err);
-      setError('Αποτυχία φόρτωσης εξαιρέσεων ωραρίου.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedClinic?.id]);
-
-  useEffect(() => {
-    loadExceptions();
-  }, [loadExceptions]);
-
-  // 2. Υποβολή Νέας Εξαίρεσης
+  // Υποβολή Νέας Εξαίρεσης
   const handleCreateException = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!startDate || !endDate) {
@@ -114,11 +95,11 @@ export default function ScheduleExceptionsPage() {
       await api.createScheduleException(payload, selectedClinic?.id);
 
       setIsAddModalOpen(false);
-      // Reset Form
       setStartDate('');
       setEndDate('');
       setNote('');
-      loadExceptions();
+      
+      await fetchClosures(true, showHistory);
     } catch (err) {
       console.error('Error creating exception:', err);
       alert('Σφάλμα κατά τη δημιουργία της εξαίρεσης.');
@@ -127,17 +108,14 @@ export default function ScheduleExceptionsPage() {
     }
   };
 
-  // 3. Διαγραφή Εξαίρεσης
+  // Διαγραφή Εξαίρεσης
   const handleDeleteException = async (id: string) => {
     if (!confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την εξαίρεση;')) return;
 
     try {
       setIsDeleting(id);
       await api.deleteScheduleException(id, selectedClinic?.id);
-
-      setExceptions((prev) =>
-        prev.filter((item) => (item.schedule_exception_id || item.id) !== id)
-      );
+      await fetchClosures(true, showHistory);
     } catch (err) {
       console.error('Error deleting exception:', err);
       alert('Αποτυχία διαγραφής.');
@@ -146,7 +124,6 @@ export default function ScheduleExceptionsPage() {
     }
   };
 
-  // Helper Format
   const formatDateRange = (item: ScheduleException) => {
     try {
       const start = new Date(item.starts_at);
@@ -171,45 +148,55 @@ export default function ScheduleExceptionsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header Container */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+            <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
               Εξαιρέσεις Ωραρίου (Schedule Exceptions)
             </h1>
             {isLoading && (
-              <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin shrink-0" />
             )}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Ορίστε αργίες, απουσίες, κλειστές ώρες ή έκτακτο ωράριο λειτουργίας που επηρεάζουν τη διαθεσιμότητα των ραντεβού.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Ορίστε αργίες, απουσίες, κλειστές ώρες ή έκτακτο ωράριο λειτουργίας.
           </p>
         </div>
 
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          disabled={isActionDisabled}
-          className={`px-4 py-2.5 font-semibold text-xs rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 ${
-            isActionDisabled
-              ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-500 cursor-not-allowed opacity-70'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}
-        >
-          <PlusIcon className="w-4 h-4" />
-          Προσθήκη Εξαίρεσης
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+          {/* Κουμπί εναλλαγής ιστορικού */}
+          <button
+            onClick={toggleHistory}
+            className={`flex-1 sm:flex-none justify-center px-3 py-2.5 font-semibold text-xs rounded-xl border transition-colors flex items-center gap-1.5 ${
+              showHistory
+                ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+            }`}
+            title="Εμφάνιση εξαιρέσεων από τον προηγούμενο μήνα"
+          >
+            <ArchiveBoxIcon className="w-4 h-4 shrink-0" />
+            <span>{showHistory ? 'Απόκρυψη Ιστορικού' : 'Ιστορικό (1 μήνα πριν)'}</span>
+          </button>
+
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            disabled={isActionDisabled}
+            className={`flex-1 sm:flex-none px-4 py-2.5 font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 ${
+              isActionDisabled
+                ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed opacity-70'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          >
+            <PlusIcon className="w-4 h-4 shrink-0" />
+            <span>Προσθήκη Εξαίρεσης</span>
+          </button>
+        </div>
       </div>
 
-      {error && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-300 text-xs rounded-xl font-medium">
-          ⚠️ {error}
-        </div>
-      )}
-
-      {/* Exceptions List */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+      {/* --- DESKTOP / TABLET TABLE VIEW (md and up) --- */}
+      <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-800">
@@ -221,9 +208,9 @@ export default function ScheduleExceptionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-              {isLoading ? (
+              {isLoading && exceptions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500">
+                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500 font-medium">
                     Φόρτωση δεδομένων...
                   </td>
                 </tr>
@@ -231,30 +218,44 @@ export default function ScheduleExceptionsPage() {
                 exceptions.map((item) => {
                   const itemId = item.schedule_exception_id || item.id || '';
                   const isClosedEffect = item.availability_effect === 'closed';
+                  const isPast = new Date(item.ends_at) < new Date(new Date().setHours(0, 0, 0, 0));
 
                   return (
-                    <tr key={itemId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                    <tr 
+                      key={itemId} 
+                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors ${
+                        isPast ? 'opacity-75 bg-slate-50/30 dark:bg-slate-900/40' : ''
+                      }`}
+                    >
                       <td className="p-3.5">
-                        <span
-                          className={`px-2 py-1 font-bold text-[10px] uppercase rounded border ${
-                            isClosedEffect
-                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
-                              : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60'
-                          }`}
-                        >
-                          {isClosedEffect ? 'Κλειστό / Απουσία' : 'Extra Ωράριο'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-2 py-1 font-bold text-[10px] uppercase rounded-md border ${
+                              isClosedEffect
+                                ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
+                                : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60'
+                            }`}
+                          >
+                            {isClosedEffect ? 'Κλειστό / Απουσία' : 'Extra Ωράριο'}
+                          </span>
+                          {isPast && (
+                            <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-semibold">
+                              Παρελθόν
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3.5 font-bold text-slate-800 dark:text-slate-100">
                         {getReasonLabel(item.reason_code)}
-                        {item.note && <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400">{item.note}</p>}
+                        {item.note && <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">{item.note}</p>}
                       </td>
-                      <td className="p-3.5 font-medium">{formatDateRange(item)}</td>
+                      <td className="p-3.5 font-semibold text-slate-600 dark:text-slate-300">{formatDateRange(item)}</td>
                       <td className="p-3.5 text-right">
                         <button
                           onClick={() => handleDeleteException(itemId)}
                           disabled={isDeleting === itemId || isActionDisabled}
                           className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          title="Διαγραφή"
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -264,8 +265,8 @@ export default function ScheduleExceptionsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500">
-                    Δεν έχουν καταχωρηθεί εξαιρέσεις ωραρίου.
+                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500 font-medium">
+                    Δεν βρέθηκαν εξαιρέσεις ωραρίου {showHistory ? 'για την επιλεγμένη περίοδο' : 'από σήμερα και μετά'}.
                   </td>
                 </tr>
               )}
@@ -274,24 +275,97 @@ export default function ScheduleExceptionsPage() {
         </div>
       </div>
 
-      {/* --- ADD EXCEPTION MODAL --- */}
+      {/* --- MOBILE CARDS VIEW (under md) --- */}
+      <div className="md:hidden space-y-3">
+        {isLoading && exceptions.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-slate-400 dark:text-slate-500 text-xs font-medium">
+            Φόρτωση δεδομένων...
+          </div>
+        ) : exceptions.length > 0 ? (
+          exceptions.map((item) => {
+            const itemId = item.schedule_exception_id || item.id || '';
+            const isClosedEffect = item.availability_effect === 'closed';
+            const isPast = new Date(item.ends_at) < new Date(new Date().setHours(0, 0, 0, 0));
+
+            return (
+              <div 
+                key={itemId}
+                className={`bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3 ${
+                  isPast ? 'opacity-75 bg-slate-50/50 dark:bg-slate-900/50' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`px-2 py-0.5 font-bold text-[10px] uppercase rounded-md border ${
+                        isClosedEffect
+                          ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60'
+                          : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60'
+                      }`}
+                    >
+                      {isClosedEffect ? 'Κλειστό / Απουσία' : 'Extra Ωράριο'}
+                    </span>
+                    {isPast && (
+                      <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-semibold">
+                        Παρελθόν
+                      </span>
+                    )}
+                  </div>
+                  
+                  <button
+                    onClick={() => handleDeleteException(itemId)}
+                    disabled={isDeleting === itemId || isActionDisabled}
+                    className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg bg-slate-50 dark:bg-slate-800 transition-colors"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    {getReasonLabel(item.reason_code)}
+                  </h3>
+                  {item.note && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {item.note}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  <CalendarIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span>{formatDateRange(item)}</span>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 text-center text-slate-400 dark:text-slate-500 text-xs font-medium">
+            Δεν βρέθηκαν εξαιρέσεις ωραρίου {showHistory ? 'για την επιλεγμένη περίοδο' : 'από σήμερα και μετά'}.
+          </div>
+        )}
+      </div>
+
+      {/* --- MODAL ADD EXCEPTION --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 dark:border-slate-800 space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
                 Προσθήκη Νέας Εξαίρεσης
               </h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold">
+              <button 
+                onClick={() => setIsAddModalOpen(false)} 
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1"
+              >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleCreateException} className="space-y-4 text-xs">
-              {/* Availability Effect */}
               <div>
-                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Τύπος Εξαίρεσης</label>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Τύπος Εξαίρεσης</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -299,7 +373,7 @@ export default function ScheduleExceptionsPage() {
                       setAvailabilityEffect('closed');
                       setReasonCode('holiday');
                     }}
-                    className={`p-2 rounded-xl font-semibold border ${
+                    className={`p-2.5 rounded-xl font-semibold border text-center transition-colors ${
                       availabilityEffect === 'closed'
                         ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -313,7 +387,7 @@ export default function ScheduleExceptionsPage() {
                       setAvailabilityEffect('open');
                       setReasonCode('extra_hours');
                     }}
-                    className={`p-2 rounded-xl font-semibold border ${
+                    className={`p-2.5 rounded-xl font-semibold border text-center transition-colors ${
                       availabilityEffect === 'open'
                         ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -324,13 +398,12 @@ export default function ScheduleExceptionsPage() {
                 </div>
               </div>
 
-              {/* Reason Code */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Αιτιολογία</label>
                 <select
                   value={reasonCode}
                   onChange={(e) => setReasonCode(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-medium"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none font-semibold"
                 >
                   {availabilityEffect === 'closed' ? (
                     <>
@@ -346,22 +419,20 @@ export default function ScheduleExceptionsPage() {
                 </select>
               </div>
 
-              {/* Full Day vs Partial Day Toggle */}
               <div className="flex items-center gap-2 py-1">
                 <input
                   type="checkbox"
                   id="allDayCheck"
                   checked={isAllDay}
                   onChange={(e) => setIsAllDay(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800"
+                  className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer"
                 />
-                <label htmlFor="allDayCheck" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                <label htmlFor="allDayCheck" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                   Ολόκληρη Ημέρα (Full-Day)
                 </label>
               </div>
 
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ημ. Έναρξης</label>
                   <input
@@ -369,7 +440,7 @@ export default function ScheduleExceptionsPage() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium"
                   />
                 </div>
                 <div>
@@ -379,14 +450,13 @@ export default function ScheduleExceptionsPage() {
                     required
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium"
                   />
                 </div>
               </div>
 
-              {/* Times (Only if NOT All-Day) */}
               {!isAllDay && (
-                <div className="grid grid-cols-2 gap-2 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <div className="grid grid-cols-2 gap-2.5 p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
                   <div>
                     <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Ώρα Έναρξης</label>
                     <input
@@ -394,7 +464,7 @@ export default function ScheduleExceptionsPage() {
                       required
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
-                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium"
                     />
                   </div>
                   <div>
@@ -404,13 +474,12 @@ export default function ScheduleExceptionsPage() {
                       required
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
-                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+                      className="w-full p-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Note */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Σημείωση (Προαιρετικό)</label>
                 <input
@@ -418,7 +487,7 @@ export default function ScheduleExceptionsPage() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="π.χ. Συντήρηση εξοπλισμού"
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 font-medium"
                 />
               </div>
 
@@ -433,7 +502,7 @@ export default function ScheduleExceptionsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-sm transition-colors"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-xs transition-colors"
                 >
                   {isSubmitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
                 </button>
