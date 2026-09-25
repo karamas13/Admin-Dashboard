@@ -35,7 +35,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { name: 'Επισκόπηση', href: '/', icon: HomeIcon },
     { name: 'Ραντεβού', href: '/appointments', icon: CalendarIcon },
-    { name: 'Εξαιρέσεις Ωραρίου', href: '/closures', icon: ClockIcon },
+    { name: 'Ωράριο', href: '/closures', icon: ClockIcon },
     { name: 'Αιτήματα Επικοινωνίας', href: '/callbacks', icon: PhoneIcon },
     ...(isOwner ? [
       { name: 'Ρυθμίσεις', href: '/settings', icon: Cog6ToothIcon },

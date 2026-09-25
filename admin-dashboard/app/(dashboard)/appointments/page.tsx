@@ -305,7 +305,7 @@ export default function AppointmentsPage() {
             </button>
           </div>
 
-          <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 text-center capitalize flex items-center justify-center gap-1.5 min-w-[130px] sm:min-w-[170px]">
+          <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 text-center capitalize flex items-center justify-center gap-1.5 min-w-32.5 sm:min-w-42.5">
             {viewMode === 'day' 
               ? currentDate.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })
               : `${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
@@ -386,7 +386,7 @@ export default function AppointmentsPage() {
                   <div className="w-14 sm:w-20 md:w-24 px-1.5 sm:px-3 py-3 text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center bg-slate-50/40 dark:bg-slate-900/50 shrink-0">
                     {time}
                   </div>
-                  <div className="flex-1 p-1.5 sm:p-2 min-h-[52px] flex items-center overflow-hidden">
+                  <div className="flex-1 p-1.5 sm:p-2 min-h-13 flex items-center overflow-hidden">
                     {appt ? (
                       <div 
                         onClick={() => setSelectedAppointment(appt)}
@@ -438,7 +438,7 @@ export default function AppointmentsPage() {
       ) : (
         /* Week View */
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-x-auto">
-          <div className="min-w-[700px]">
+          <div className="min-w-175">
             <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
               <div className="p-2 sm:p-3 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">
                 Ώρα
@@ -473,7 +473,7 @@ export default function AppointmentsPage() {
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-[50px] sm:min-h-[60px] border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center ${
+                        className={`p-1 min-h-12.5 sm:min-h-15 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center ${
                           !isOpenSlot && !appt ? 'bg-slate-100/40 dark:bg-slate-950/50' : 'bg-white dark:bg-slate-900'
                         }`}
                       >

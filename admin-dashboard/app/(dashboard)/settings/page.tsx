@@ -11,18 +11,7 @@ import {
   PlusIcon,
   TrashIcon,
   CheckCircleIcon,
-  ClockIcon,
 } from '@heroicons/react/24/outline';
-
-const DAYS_OF_WEEK = [
-  { id: '1', label: 'Δευτέρα' },
-  { id: '2', label: 'Τρίτη' },
-  { id: '3', label: 'Τετάρτη' },
-  { id: '4', label: 'Πέμπτη' },
-  { id: '5', label: 'Παρασκευή' },
-  { id: '6', label: 'Σάββατο' },
-  { id: '7', label: 'Κυριακή' },
-];
 
 const GREEK_LABEL_MAP: Record<string, string> = {
   checkup: 'Εξέταση / Έλεγχος',
@@ -77,20 +66,12 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Γενικές Ρυθμίσεις & Ωράριο
+  // 1. Γενικές Ρυθμίσεις
   const [clinicName, setClinicName] = useState('');
   const [timezone, setTimezone] = useState('Europe/Athens');
   const [slotInterval, setSlotInterval] = useState(30);
   const [minNotice, setMinNotice] = useState(30);
-  const [workingHours, setWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>>>({
-    '1': [{ start: '09:00', end: '17:00' }],
-    '2': [{ start: '09:00', end: '17:00' }],
-    '3': [{ start: '09:00', end: '17:00' }],
-    '4': [{ start: '09:00', end: '17:00' }],
-    '5': [{ start: '09:00', end: '17:00' }],
-    '6': [],
-    '7': [],
-  });
+  const [workingHours, setWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>>>({});
 
   // 2. Τύποι Ραντεβού
   const [types, setTypes] = useState<AppointmentType[]>([]);
@@ -211,7 +192,7 @@ export default function SettingsPage() {
         timezone,
         slot_interval_minutes: Number(slotInterval),
         minimum_booking_notice_minutes: Number(minNotice),
-        working_hours_json: workingHours,
+        working_hours_json: workingHours, // Διατηρείται το υπάρχον workingHours για να μην μηδενιστεί
         appointment_duration_minutes_json: durationsObj,
         appointment_preparation_json: prepsObj,
         faq_json: faqsList,
@@ -244,7 +225,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">Ρυθμίσεις Κλινικής</h1>      
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Διαχειριστείτε το ωράριο, τους τύπους ραντεβού, τις οδηγίες και τις απαντήσεις της AI Receptionist.
+            Διαχειριστείτε τις γενικές πληροφορίες, τους τύπους ραντεβού, τις οδηγίες και τις απαντήσεις της AI Receptionist.
           </p>
         </div>
 
@@ -272,7 +253,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Responsive Navigation Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold overflow-x-auto whitespace-nowrap max-w-full">
         <button
           onClick={() => setActiveTab('general')}
@@ -283,7 +264,7 @@ export default function SettingsPage() {
           }`}
         >
           <BuildingOfficeIcon className="w-4 h-4 shrink-0" />
-          <span>Γενικά & Ωράριο</span>
+          <span>Γενικές Ρυθμίσεις</span>
         </button>
         <button
           onClick={() => setActiveTab('appointment_types')}
@@ -309,7 +290,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1: GENERAL & WORKING HOURS */}
+      {/* TAB 1: GENERAL SETTINGS */}
       {activeTab === 'general' && (
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -348,75 +329,6 @@ export default function SettingsPage() {
                 onChange={(e) => setMinNotice(Number(e.target.value))}
                 className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
               />
-            </div>
-          </div>
-
-          {/* Ωράριο Λειτουργίας */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-1.5 mb-3">
-              <ClockIcon className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs">Εβδομαδιαίο Ωράριο Λειτουργίας</h3>
-            </div>
-            <div className="space-y-2">
-              {DAYS_OF_WEEK.map((day) => {
-                const slots = workingHours[day.id] || [];
-                const isOpen = slots.length > 0;
-                const currentSlot = slots[0] || { start: '09:00', end: '17:00' };
-
-                return (
-                  <div
-                    key={day.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50/70 dark:bg-slate-800/50 rounded-xl border border-slate-200/60 dark:border-slate-700/60 transition-colors gap-2 sm:gap-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`day_check_${day.id}`}
-                        checked={isOpen}
-                        onChange={(e) => {
-                          const updated = { ...workingHours };
-                          updated[day.id] = e.target.checked ? [{ start: '09:00', end: '17:00' }] : [];
-                          setWorkingHours(updated);
-                        }}
-                        className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer"
-                      />
-                      <label htmlFor={`day_check_${day.id}`} className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
-                        {day.label}
-                      </label>
-                    </div>
-
-                    {isOpen ? (
-                      <div className="flex items-center gap-2 pl-7 sm:pl-0">
-                        <input
-                          type="time"
-                          value={currentSlot.start}
-                          onChange={(e) => {
-                            const updated = { ...workingHours };
-                            updated[day.id] = [{ start: e.target.value, end: currentSlot.end }];
-                            setWorkingHours(updated);
-                          }}
-                          className="p-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-100"
-                        />
-                        <span className="text-slate-400 font-bold text-xs">έως</span>
-                        <input
-                          type="time"
-                          value={currentSlot.end}
-                          onChange={(e) => {
-                            const updated = { ...workingHours };
-                            updated[day.id] = [{ start: currentSlot.start, end: e.target.value }];
-                            setWorkingHours(updated);
-                          }}
-                          className="p-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 font-medium text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-                    ) : (
-                      <span className="text-slate-400 dark:text-slate-500 font-medium italic pl-7 sm:pl-0">
-                        Κλειστά
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
@@ -556,7 +468,7 @@ export default function SettingsPage() {
                     const val = e.target.value;
                     setFaqs((prev) => prev.map((item) => (item.id === f.id ? { ...item, answer: val } : item)));
                   }}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-100 outline-none"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
                 />
               </div>
             ))}
