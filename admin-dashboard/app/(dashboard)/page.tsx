@@ -1,31 +1,16 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { api } from '@/services/api';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useClinic } from '@/context/ClinicContext';
-import { Appointment } from '@/types';
+import { useDashboard } from '@/context/DashboardContext';
 import CreateAppointmentModal from '@/components/create-appointment-modal';
 import {
   CalendarDaysIcon,
   PhoneArrowUpRightIcon,
   ExclamationTriangleIcon,
   PlusIcon,
-  ArrowPathIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
-
-interface CallbackItem {
-  callback_id?: string;
-  id?: string;
-  caller_name?: string;
-  patient_name?: string;
-  phone_normalized?: string;
-  phone?: string;
-  status?: string;
-  is_resolved?: boolean;
-  urgency_code?: string;
-  created_at?: string;
-}
 
 const GREEK_LABEL_MAP: Record<string, string> = {
   checkup: 'Εξέταση / Έλεγχος',
@@ -47,84 +32,50 @@ function getLocalDateString(date: Date) {
 
 export default function DashboardHome() {
   const { selectedClinic } = useClinic();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [callbacks, setCallbacks] = useState<CallbackItem[]>([]);
-  const [settingsData, setSettingsData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { 
+    appointments: contextAppointments,
+    callbacks, 
+    settings, 
+    loadingTab, 
+    fetchAppointments,
+    fetchCallbacks, 
+    fetchSettings 
+  } = useDashboard();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const loadDashboardData = useCallback(async () => {
-    if (!selectedClinic?.id) return;
-
-    try {
-      setIsLoading(true);
-      setError('');
-
-      const now = new Date();
-      const todayStr = getLocalDateString(now);
-      const startAt = `${todayStr}T00:00:00.000Z`;
-      const endAt = `${todayStr}T23:59:59.999Z`;
-
-      const [apptsRes, cbCreatedRes, cbPendingRes, settingsRes] = await Promise.all([
-        api.getAppointments({ startAt, endAt }, selectedClinic.id).catch(() => []),
-        api.getCallbacks ? api.getCallbacks('created', selectedClinic.id).catch(() => []) : Promise.resolve([]),
-        api.getCallbacks ? api.getCallbacks('pending', selectedClinic.id).catch(() => []) : Promise.resolve([]),
-        api.getSettings(selectedClinic.id).catch(() => null),
-      ]);
-
-      let loadedAppts: Appointment[] = [];
-      if (apptsRes && Array.isArray(apptsRes.appointments)) {
-        loadedAppts = apptsRes.appointments;
-      } else if (Array.isArray(apptsRes)) {
-        loadedAppts = apptsRes;
-      }
-      setAppointments(loadedAppts);
-
-      const extractList = (res: any) => {
-        if (Array.isArray(res)) return res;
-        if (res && Array.isArray(res.callbacks)) return res.callbacks;
-        if (res && Array.isArray(res.data)) return res.data;
-        return [];
-      };
-
-      const listCreated = extractList(cbCreatedRes);
-      const listPending = extractList(cbPendingRes);
-
-      const combinedMap = new Map();
-      [...listCreated, ...listPending].forEach((item: any) => {
-        const id = item.callback_id || item.id;
-        if (id) combinedMap.set(id, item);
-        else combinedMap.set(JSON.stringify(item), item);
-      });
-
-      const allCallbacks = Array.from(combinedMap.values());
-      setCallbacks(allCallbacks);
-
-      setSettingsData(settingsRes?.settings || settingsRes);
-    } catch (err: any) {
-      console.error('Error loading dashboard stats:', err);
-      setError('Αποτυχία φόρτωσης δεδομένων.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedClinic?.id]);
-
+  // Fetch cached context data on mount / clinic switch
   useEffect(() => {
-    loadDashboardData();
-  }, [loadDashboardData]);
+    if (selectedClinic?.id) {
+      fetchAppointments();
+      fetchCallbacks();
+      fetchSettings();
+    }
+  }, [selectedClinic?.id, fetchAppointments, fetchCallbacks, fetchSettings]);
 
-  const activeAppointments = appointments.filter((a: any) => a.status !== 'cancelled');
-  const cancelledAppointments = appointments.filter((a: any) => a.status === 'cancelled');
+  // Derive today's appointments directly from context cache
+  const todayAppointments = useMemo(() => {
+    const todayStr = getLocalDateString(new Date());
+    return (contextAppointments || []).filter((appt: any) => {
+      if (!appt.start_at) return false;
+      const apptDateStr = getLocalDateString(new Date(appt.start_at));
+      return apptDateStr === todayStr;
+    });
+  }, [contextAppointments]);
 
-  const pendingCallbacks = callbacks
-    .filter((c) => {
+  const isApptsLoading = loadingTab === 'appointments';
+
+  const activeAppointments = todayAppointments.filter((a: any) => a.status !== 'cancelled');
+  const cancelledAppointments = todayAppointments.filter((a: any) => a.status === 'cancelled');
+
+  const pendingCallbacks = (callbacks || [])
+    .filter((c: any) => {
       if (typeof c.is_resolved === 'boolean') return !c.is_resolved;
       if (!c.status) return true;
       const st = c.status.toLowerCase();
       return st !== 'completed' && st !== 'resolved' && st !== 'done' && st !== 'cancelled';
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       const aUrgent = a.urgency_code && a.urgency_code !== 'normal' ? 1 : 0;
       const bUrgent = b.urgency_code && b.urgency_code !== 'normal' ? 1 : 0;
       if (bUrgent !== aUrgent) return bUrgent - aUrgent;
@@ -144,7 +95,6 @@ export default function DashboardHome() {
       const d = new Date(isoString);
       const now = new Date();
       const isToday = d.toDateString() === now.toDateString();
-
       const timeStr = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
 
       if (isToday) return `Σήμερα, ${timeStr}`;
@@ -158,6 +108,7 @@ export default function DashboardHome() {
 
   const getAppointmentLabel = (typeCode: string) => {
     if (!typeCode) return 'Γενικό';
+    const settingsData = settings?.settings || settings;
     const preps = settingsData?.appointment_preparation_json || {};
     const rawPrep = preps[typeCode] || '';
 
@@ -196,24 +147,9 @@ export default function DashboardHome() {
             className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
           >
             <PlusIcon className="w-4 h-4" /> Νέο Ραντεβού
-          </button>
-          <button
-            onClick={loadDashboardData}
-            disabled={isLoading}
-            className="p-2 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-colors disabled:opacity-50"
-            title="Ανανέωση"
-          >
-            <ArrowPathIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
+          </button>        
         </div>
       </div>
-
-      {error && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2 font-medium">
-          <ExclamationTriangleIcon className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-          {error}
-        </div>
-      )}
 
       {/* Live KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -226,7 +162,7 @@ export default function DashboardHome() {
           </div>
           <div className="mt-3">
             <div className="text-3xl font-extrabold text-slate-800 dark:text-slate-100">
-              {isLoading ? '...' : activeAppointments.length}
+              {isApptsLoading ? '...' : activeAppointments.length}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {cancelledAppointments.length > 0 ? `${cancelledAppointments.length} ακυρωμένα` : 'Όλα ενεργά'}
@@ -243,7 +179,7 @@ export default function DashboardHome() {
           </div>
           <div className="mt-3">
             <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
-              {isLoading ? '...' : pendingCallbacks.length}
+              {loadingTab === 'callbacks' ? '...' : pendingCallbacks.length}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               {pendingCallbacks.length > 0 ? 'Συνολικές εκκρεμότητες' : 'Καμία εκκρεμότητα'}
@@ -260,7 +196,7 @@ export default function DashboardHome() {
           </div>
           <div className="mt-3">
             <div className="text-3xl font-extrabold text-rose-600 dark:text-rose-400">
-              {isLoading ? '...' : urgentCallbacks.length}
+              {loadingTab === 'callbacks' ? '...' : urgentCallbacks.length}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Υψηλής προτεραιότητας</p>
           </div>
@@ -269,27 +205,27 @@ export default function DashboardHome() {
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Σημερινό Πρόγραμμα */}
+        {/* Daily Schedule */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs p-5 sm:p-6 transition-colors">
           <div className="flex items-center justify-between border-b border-blue-50 dark:border-slate-800 pb-4 mb-4">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <CalendarDaysIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Πρόγραμμα Ημέρας ({appointments.length})
+              Πρόγραμμα Ημέρας ({todayAppointments.length})
             </h3>
             <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
               {new Date().toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'numeric' })}
             </span>
           </div>
 
-          {isLoading ? (
+          {isApptsLoading ? (
             <div className="py-12 text-center text-xs text-slate-400">Φόρτωση προγράμματος...</div>
-          ) : appointments.length === 0 ? (
+          ) : todayAppointments.length === 0 ? (
             <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 bg-blue-50/30 dark:bg-slate-800/40 rounded-xl border border-dashed border-blue-100 dark:border-slate-800">
               Δεν υπάρχουν προγραμματισμένα ραντεβού για σήμερα.
             </div>
           ) : (
             <div className="space-y-2.5">
-              {appointments.map((appt: any) => {
+              {todayAppointments.map((appt: any) => {
                 const name = appt.caller_name || appt.patient_name || appt.patient?.name || 'Ανώνυμος Ασθενής';
                 const phone = appt.phone_normalized || appt.phone || '-';
                 const isCancelled = appt.status === 'cancelled';
@@ -339,7 +275,7 @@ export default function DashboardHome() {
           )}
         </div>
 
-        {/* Εκκρεμή Callbacks */}
+        {/* Pending Callbacks */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-blue-100 dark:border-slate-800 shadow-xs p-5 sm:p-6 flex flex-col justify-between transition-colors">
           <div>
             <div className="flex items-center justify-between border-b border-blue-50 dark:border-slate-800 pb-4 mb-4">
@@ -352,7 +288,7 @@ export default function DashboardHome() {
               </span>
             </div>
 
-            {isLoading ? (
+            {loadingTab === 'callbacks' ? (
               <div className="py-12 text-center text-xs text-slate-400">Φόρτωση...</div>
             ) : pendingCallbacks.length === 0 ? (
               <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500 bg-blue-50/30 dark:bg-slate-800/40 rounded-xl border border-dashed border-blue-100 dark:border-slate-800">
@@ -360,7 +296,7 @@ export default function DashboardHome() {
               </div>
             ) : (
               <div className="space-y-2.5 max-h-105 overflow-y-auto pr-1">
-                {pendingCallbacks.map((cb, idx) => {
+                {pendingCallbacks.map((cb: any, idx: number) => {
                   const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
                   const dateLabel = formatCallbackDate(cb.created_at);
                   const callerName = cb.caller_name || cb.patient_name || 'Ασθενής';
@@ -412,8 +348,8 @@ export default function DashboardHome() {
         <CreateAppointmentModal
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
-            setIsModalOpen(false);
-            loadDashboardData();
+            fetchAppointments(true);
+            setIsModalOpen(false);      
           }}
         />
       )}

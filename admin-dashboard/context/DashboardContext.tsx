@@ -6,7 +6,7 @@ import { useClinic } from '@/context/ClinicContext';
 
 interface DashboardContextType {
   appointments: any[];
-  billing: any[];
+  billing: any;
   callbacks: any[];
   closures: any[];
   settings: any; 
@@ -28,7 +28,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const clinicId = selectedClinic?.id;
 
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [billing, setBilling] = useState<any[]>([]);
+  const [billing, setBilling] = useState<any>(null); // Changed default from [] to null to support object payloads
   const [callbacks, setCallbacks] = useState<any[]>([]);
   const [closures, setClosures] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
@@ -64,8 +64,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
     try {
       setLoadingTab('billing');
-      const data = api.getBilling ? await api.getBilling(clinicId) : []; 
-      setBilling(Array.isArray(data) ? data : data?.billing || []);
+      const data = api.getBilling ? await api.getBilling(clinicId) : null; 
+      // Accept either direct object or array structure safely
+      setBilling(data);
       setFetchedClinics((prev) => ({ ...prev, [`billing_${clinicId}`]: true }));
     } catch (err) {
       console.error('Failed to fetch billing:', err);
@@ -111,8 +112,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
- 
-  // FETCH CLOSURES / SCHEDULE EXCEPTIONS
   const fetchClosures = useCallback(async (force = false, includeHistory = false) => {
     if (!clinicId) return;
     if (!force && !includeHistory && hasData('closures')) return;
@@ -124,11 +123,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       let startAt: string;
 
       if (includeHistory) {
-        // 1 μήνας πίσω
         const pastDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate(), 0, 0, 0);
         startAt = pastDate.toISOString();
       } else {
-        // Αρχή της σημερινής ημέρας (00:00:00)
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
         startAt = today.toISOString();
       }
@@ -158,8 +155,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoadingTab(null);
     }
-
-    
   }, [clinicId, hasData]);
 
   const fetchSettings = useCallback(async (force = false) => {
@@ -178,13 +173,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clinicId, hasData]);
 
-  // Αυτόματο triggering όταν αλλάζει η κλινική
+  // Automatically trigger fetches when clinic changes
   useEffect(() => {
     if (clinicId) {
       fetchCallbacks();
       fetchClosures();
+      fetchBilling(); // Added fetchBilling here
     }
-  }, [clinicId, fetchCallbacks, fetchClosures]);
+  }, [clinicId, fetchCallbacks, fetchClosures, fetchBilling]);
 
   const invalidateCache = useCallback(() => {
     setFetchedClinics({});

@@ -376,8 +376,20 @@ updateSettings: async (payload: any, clinicId?: string) => {
 
 // 6. BILLING & USAGE
 
-getBilling: async (clinicId?: string) => {
-  return apiFetch<any>('/api/dashboard/billing-periods', { method: 'GET' }, clinicId);
+getBilling: async (clinicId?: string, periodId?: string) => {
+  const activeClinicId = clinicId || getStoredClinicId();
+  const queryParams = new URLSearchParams();
+
+  if (activeClinicId) queryParams.append('clinic_id', activeClinicId);
+
+  const queryString = queryParams.toString();
+  
+  // If a specific period ID is requested, hit the detail route; otherwise, fetch the list
+  const endpoint = periodId
+    ? `/api/dashboard/billing-periods/${periodId}${queryString ? `?${queryString}` : ''}`
+    : `/api/dashboard/billing-periods${queryString ? `?${queryString}` : ''}`;
+
+  return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
 },
 };
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
+import { useDashboard } from '@/context/DashboardContext';
 import {
   BuildingOfficeIcon,
   CalendarDaysIcon,
@@ -60,90 +61,86 @@ interface FAQ {
 
 export default function SettingsPage() {
   const { selectedClinic } = useClinic();
+  const { settings, loadingTab, fetchSettings } = useDashboard();
+
   const [activeTab, setActiveTab] = useState<'general' | 'appointment_types' | 'faqs'>('general');
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Γενικές Ρυθμίσεις
+  // 1. General Settings
   const [clinicName, setClinicName] = useState('');
   const [timezone, setTimezone] = useState('Europe/Athens');
   const [slotInterval, setSlotInterval] = useState(30);
   const [minNotice, setMinNotice] = useState(30);
   const [workingHours, setWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>>>({});
 
-  // 2. Τύποι Ραντεβού
+  // 2. Appointment Types
   const [types, setTypes] = useState<AppointmentType[]>([]);
 
   // 3. FAQs
   const [faqs, setFaqs] = useState<FAQ[]>([]);
 
-  // Φόρτωση Δεδομένων
+  // Trigger Context Fetch on Mount
   useEffect(() => {
-    async function loadData() {
-      if (!selectedClinic?.id) return;
-      try {
-        setIsLoading(true);
-        const res = await api.getSettings(selectedClinic.id);
-        const data = res?.settings || res;
+    if (selectedClinic?.id) {
+      fetchSettings();
+    }
+  }, [selectedClinic?.id, fetchSettings]);
 
-        if (data) {
-          setClinicName(data.name || selectedClinic?.name || '');
-          setTimezone(data.timezone || 'Europe/Athens');
-          setSlotInterval(data.slot_interval_minutes || 30);
-          setMinNotice(data.minimum_booking_notice_minutes || 30);
-          if (data.working_hours_json && typeof data.working_hours_json === 'object') {
-            setWorkingHours(data.working_hours_json);
-          }
+  // Sync component state with DashboardContext settings
+  useEffect(() => {
+    if (!settings) return;
+    const data = settings?.settings || settings;
 
-          const durations = data.appointment_duration_minutes_json || {};
-          const preps = data.appointment_preparation_json || {};
-          const keys = Array.from(new Set([...Object.keys(durations), ...Object.keys(preps)]));
+    if (data) {
+      setClinicName(data.name || selectedClinic?.name || '');
+      setTimezone(data.timezone || 'Europe/Athens');
+      setSlotInterval(data.slot_interval_minutes || 30);
+      setMinNotice(data.minimum_booking_notice_minutes || 30);
+      if (data.working_hours_json && typeof data.working_hours_json === 'object') {
+        setWorkingHours(data.working_hours_json);
+      }
 
-          const loadedTypes: AppointmentType[] = keys.map((key, idx) => {
-            const rawPrep = preps[key] || '';
-            let parsedTitle = GREEK_LABEL_MAP[key] || key.replace(/_/g, ' ');
-            let cleanPrep = rawPrep;
+      const durations = data.appointment_duration_minutes_json || {};
+      const preps = data.appointment_preparation_json || {};
+      const keys = Array.from(new Set([...Object.keys(durations), ...Object.keys(preps)]));
 
-            if (rawPrep.startsWith('[TITLE:')) {
-              const match = rawPrep.match(/^\[TITLE:\s*([\s\S]*?)\]\s*([\s\S]*)$/);
-              if (match) {
-                parsedTitle = match[1];
-                cleanPrep = match[2];
-              }
-            }
+      const loadedTypes: AppointmentType[] = keys.map((key, idx) => {
+        const rawPrep = preps[key] || '';
+        let parsedTitle = GREEK_LABEL_MAP[key] || key.replace(/_/g, ' ');
+        let cleanPrep = rawPrep;
 
-            return {
-              id: `type_${key}_${idx}`,
-              originalKey: key,
-              title: parsedTitle,
-              duration: Number(durations[key]) || 30,
-              prep: cleanPrep,
-            };
-          });
-
-          setTypes(loadedTypes);
-
-          if (Array.isArray(data.faq_json)) {
-            setFaqs(
-              data.faq_json.map((f: any, idx: number) => ({
-                id: `faq_${idx}_${Date.now()}`,
-                question: f.q || f.question || '',
-                answer: f.a || f.answer || '',
-              }))
-            );
+        if (rawPrep.startsWith('[TITLE:')) {
+          const match = rawPrep.match(/^\[TITLE:\s*([\s\S]*?)\]\s*([\s\S]*)$/);
+          if (match) {
+            parsedTitle = match[1];
+            cleanPrep = match[2];
           }
         }
-      } catch (err) {
-        console.error('Error loading settings:', err);
-      } finally {
-        setIsLoading(false);
+
+        return {
+          id: `type_${key}_${idx}`,
+          originalKey: key,
+          title: parsedTitle,
+          duration: Number(durations[key]) || 30,
+          prep: cleanPrep,
+        };
+      });
+
+      setTypes(loadedTypes);
+
+      if (Array.isArray(data.faq_json)) {
+        setFaqs(
+          data.faq_json.map((f: any, idx: number) => ({
+            id: `faq_${idx}_${Date.now()}`,
+            question: f.q || f.question || '',
+            answer: f.a || f.answer || '',
+          }))
+        );
       }
     }
-
-    loadData();
-  }, [selectedClinic?.id, selectedClinic?.name]);
+  }, [settings, selectedClinic?.name]);
 
   const addType = () => {
     setTypes((prev) => [{ id: `type_new_${Date.now()}`, title: '', duration: 30, prep: '' }, ...prev]);
@@ -161,7 +158,6 @@ export default function SettingsPage() {
     setFaqs((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Αποθήκευση
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -192,13 +188,14 @@ export default function SettingsPage() {
         timezone,
         slot_interval_minutes: Number(slotInterval),
         minimum_booking_notice_minutes: Number(minNotice),
-        working_hours_json: workingHours, // Διατηρείται το υπάρχον workingHours για να μην μηδενιστεί
+        working_hours_json: workingHours,
         appointment_duration_minutes_json: durationsObj,
         appointment_preparation_json: prepsObj,
         faq_json: faqsList,
       };
 
       await api.updateSettings(payload, selectedClinic?.id);
+      await fetchSettings(true); // Refetch and update context cache
       setSuccessMsg('Οι ρυθμίσεις αποθηκεύτηκαν με επιτυχία!');
     } catch (err: any) {
       console.error('Error saving settings:', err);
@@ -208,7 +205,7 @@ export default function SettingsPage() {
     }
   };
 
-  if (isLoading) {
+  if (loadingTab === 'settings' && !settings) {
     return (
       <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-4xl mx-auto dark:bg-slate-950 min-h-screen">
         <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>

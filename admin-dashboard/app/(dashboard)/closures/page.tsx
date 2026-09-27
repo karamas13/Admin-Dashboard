@@ -60,7 +60,7 @@ const getReasonLabel = (code: string) => {
 
 export default function ScheduleExceptionsPage() {
   const { isReadOnly, isOwner, selectedClinic } = useClinic();
-  const { closures: exceptions, loadingTab, fetchClosures } = useDashboard();
+  const { closures: exceptions, loadingTab, fetchClosures, settings, fetchSettings } = useDashboard();
   
   const isLoading = loadingTab === 'closures';
   const isActionDisabled = isReadOnly || !isOwner;
@@ -111,30 +111,45 @@ export default function ScheduleExceptionsPage() {
     loadClinicHours();
   }, [selectedClinic?.id]);
 
+  // Trigger settings fetch using DashboardContext caching
+useEffect(() => {
+  if (selectedClinic?.id) {
+    fetchSettings();
+  }
+}, [selectedClinic?.id, fetchSettings]);
+
+// Sync workingHours when context settings change
+useEffect(() => {
+  const data = settings?.settings || settings;
+  if (data?.working_hours_json && typeof data.working_hours_json === 'object') {
+    setWorkingHours(data.working_hours_json);
+  }
+}, [settings]);
+
   // Αποθήκευση Εβδομαδιαίου Ωραρίου
-  const handleSaveWeeklyHours = async () => {
-    try {
-      setIsSavingHours(true);
-      setSuccessMsg('');
-      setErrorMsg('');
+ const handleSaveWeeklyHours = async () => {
+  try {
+    setIsSavingHours(true);
+    setSuccessMsg('');
+    setErrorMsg('');
 
-      const res = await api.getSettings(selectedClinic?.id);
-      const data = res?.settings || res || {};
+    const data = settings?.settings || settings || {};
 
-      const payload = {
-        ...data,
-        working_hours_json: workingHours,
-      };
+    const payload = {
+      ...data,
+      working_hours_json: workingHours,
+    };
 
-      await api.updateSettings(payload, selectedClinic?.id);
-      setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
-    } catch (err: any) {
-      console.error('Error saving weekly hours:', err);
-      setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
-    } finally {
-      setIsSavingHours(false);
-    }
-  };
+    await api.updateSettings(payload, selectedClinic?.id);
+    await fetchSettings(true); // Force-refresh settings cache in context
+    setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
+  } catch (err: any) {
+    console.error('Error saving weekly hours:', err);
+    setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
+  } finally {
+    setIsSavingHours(false);
+  }
+};
 
   const toggleHistory = async () => {
     const nextState = !showHistory;
