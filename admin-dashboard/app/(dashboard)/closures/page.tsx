@@ -37,7 +37,7 @@ const DAYS_OF_WEEK = [
   { id: '7', label: 'Κυριακή' },
 ];
 
-// Δημιουργία επιλογών ώρας ανά 30 λεπτά (07:00 - 23:00) για φιλικό UI
+// Δημιουργία επιλογών ώρας
 const TIME_OPTIONS = Array.from({ length: 33 }, (_, i) => {
   const hour = Math.floor(i / 2) + 7;
   const minute = i % 2 === 0 ? '00' : '30';
@@ -62,14 +62,14 @@ export default function ScheduleExceptionsPage() {
   const { isReadOnly, isOwner, selectedClinic } = useClinic();
   const { closures: exceptions, loadingTab, fetchClosures, settings, fetchSettings } = useDashboard();
   
-  const isLoading = loadingTab === 'closures';
+  const isLoading = loadingTab === 'closures' || loadingTab === 'settings';
   const isActionDisabled = isReadOnly || !isOwner;
 
   const [showHistory, setShowHistory] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  // States για το Εβδομαδιαίο Ωράριο
+  // States for Weekly Working Hours
   const [workingHours, setWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>>>({
     '1': [{ start: '09:00', end: '17:00' }],
     '2': [{ start: '09:00', end: '17:00' }],
@@ -83,7 +83,7 @@ export default function ScheduleExceptionsPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Form State για Εξαιρέσεις
+  // Form State for Exceptions
   const [availabilityEffect, setAvailabilityEffect] = useState<'closed' | 'open'>('closed');
   const [reasonCode, setReasonCode] = useState('holiday');
   const [isAllDay, setIsAllDay] = useState(true);
@@ -94,37 +94,20 @@ export default function ScheduleExceptionsPage() {
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Φόρτωση Ωραρίου
+  // 1. Trigger settings fetch via DashboardContext (will use cached data if available)
   useEffect(() => {
-    async function loadClinicHours() {
-      if (!selectedClinic?.id) return;
-      try {
-        const res = await api.getSettings(selectedClinic.id);
-        const data = res?.settings || res;
-        if (data?.working_hours_json && typeof data.working_hours_json === 'object') {
-          setWorkingHours(data.working_hours_json);
-        }
-      } catch (err) {
-        console.error('Error loading clinic working hours:', err);
-      }
+    if (selectedClinic?.id) {
+      fetchSettings();
     }
-    loadClinicHours();
-  }, [selectedClinic?.id]);
+  }, [selectedClinic?.id, fetchSettings]);
 
-  // Trigger settings fetch using DashboardContext caching
-useEffect(() => {
-  if (selectedClinic?.id) {
-    fetchSettings();
-  }
-}, [selectedClinic?.id, fetchSettings]);
-
-// Sync workingHours when context settings change
-useEffect(() => {
-  const data = settings?.settings || settings;
-  if (data?.working_hours_json && typeof data.working_hours_json === 'object') {
-    setWorkingHours(data.working_hours_json);
-  }
-}, [settings]);
+  // 2. Sync local workingHours state whenever context settings update
+  useEffect(() => {
+    const data = settings?.settings || settings;
+    if (data?.working_hours_json && typeof data.working_hours_json === 'object') {
+      setWorkingHours(data.working_hours_json);
+    }
+  }, [settings]);
 
   // Αποθήκευση Εβδομαδιαίου Ωραρίου
  const handleSaveWeeklyHours = async () => {
@@ -331,7 +314,7 @@ useEffect(() => {
                     }}
                     className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer disabled:opacity-50"
                   />
-                  <label htmlFor={`day_check_${day.id}`} className="font-bold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-[90px]">
+                  <label htmlFor={`day_check_${day.id}`} className="font-bold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-22.5">
                     {day.label}
                   </label>
                   <span

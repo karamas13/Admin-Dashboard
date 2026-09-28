@@ -173,14 +173,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clinicId, hasData]);
 
-  // Automatically trigger fetches when clinic changes
+  // AUTOMATIC TRIGGERING WHEN CLINIC CHANGES
   useEffect(() => {
     if (clinicId) {
       fetchCallbacks();
       fetchClosures();
-      fetchBilling(); // Added fetchBilling here
+      fetchSettings(); // <-- ADDED: Automatically fetch & cache settings on clinic load
     }
-  }, [clinicId, fetchCallbacks, fetchClosures, fetchBilling]);
+  }, [clinicId, fetchCallbacks, fetchClosures, fetchSettings]);
 
   const invalidateCache = useCallback(() => {
     setFetchedClinics({});

@@ -315,7 +315,7 @@ export default function ScheduleExceptionsPage() {
                     }}
                     className="w-4 h-4 text-blue-600 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-700 cursor-pointer disabled:opacity-50"
                   />
-                  <label htmlFor={`day_check_${day.id}`} className="font-bold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-[90px]">
+                  <label htmlFor={`day_check_${day.id}`} className="font-bold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-22.5">
                     {day.label}
                   </label>
                   <span

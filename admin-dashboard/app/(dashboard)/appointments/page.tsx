@@ -30,7 +30,8 @@ export default function AppointmentsPage() {
   const { selectedClinic } = useClinic();
   const { settings, fetchSettings, fetchAppointments: fetchContextAppointments, appointments: contextAppointments } = useDashboard(); 
   
-  const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
+  // Changed default view mode to 'week'
+  const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -381,9 +382,17 @@ export default function AppointmentsPage() {
               return (
                 <div 
                   key={time} 
-                  className={`flex transition-colors ${!isOpenSlot && !appt ? 'bg-slate-50/60 dark:bg-slate-950/60' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'}`}
+                  className={`flex transition-colors ${
+                    !isOpenSlot && !appt 
+                      ? 'bg-slate-100/80 dark:bg-slate-950/80 [background-image:linear-gradient(135deg,#00000008_10%,transparent_10%,transparent_50%,#00000008_50%,#00000008_60%,transparent_60%,transparent)] dark:[background-image:linear-gradient(135deg,#ffffff08_10%,transparent_10%,transparent_50%,#ffffff08_50%,#ffffff08_60%,transparent_60%,transparent)] [background-size:16px_16px]' 
+                      : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'
+                  }`}
                 >
-                  <div className="w-14 sm:w-20 md:w-24 px-1.5 sm:px-3 py-3 text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center bg-slate-50/40 dark:bg-slate-900/50 shrink-0">
+                  <div className={`w-14 sm:w-20 md:w-24 px-1.5 sm:px-3 py-3 text-[11px] sm:text-xs font-bold border-r flex items-center justify-center shrink-0 ${
+                    !isOpenSlot && !appt 
+                      ? 'text-slate-400 dark:text-slate-600 bg-slate-200/50 dark:bg-slate-950/90 border-slate-200 dark:border-slate-800' 
+                      : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/50'
+                  }`}>
                     {time}
                   </div>
                   <div className="flex-1 p-1.5 sm:p-2 min-h-13 flex items-center overflow-hidden">
@@ -425,9 +434,12 @@ export default function AppointmentsPage() {
                         + <span className="hidden sm:inline">Διαθέσιμο ραντεβού</span>
                       </button>
                     ) : (
-                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-600 italic px-2 sm:px-4">
-                        Εκτός Ωραρίου
-                      </span>
+                      <div className="flex items-center gap-1.5 px-2 sm:px-4">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400/60 dark:bg-slate-600/60" />
+                        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide uppercase">
+                          Εκτός Ωραρίου
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -449,11 +461,17 @@ export default function AppointmentsPage() {
                 const isDayClosed = !workingHours[dayKey] || workingHours[dayKey].length === 0;
 
                 return (
-                  <div key={day.name} className={`p-2 sm:p-3 text-center border-r border-slate-100 dark:border-slate-800 last:border-0 ${isDayClosed ? 'bg-slate-100/50 dark:bg-slate-950/40' : ''}`}>
-                    <p className="text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{day.name}</p>
+                  <div key={day.name} className={`p-2 sm:p-3 text-center border-r border-slate-100 dark:border-slate-800 last:border-0 transition-colors ${
+                    isDayClosed ? 'bg-slate-200/40 dark:bg-slate-950/80' : ''
+                  }`}>
+                    <p className={`text-[11px] sm:text-xs font-bold truncate ${isDayClosed ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                      {day.name}
+                    </p>
                     <p className="text-[9px] sm:text-[10px] font-medium text-slate-400 dark:text-slate-500">{day.formattedDate}</p>
                     {isDayClosed && (
-                      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-600 block mt-0.5">Κλειστά</span>
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mt-0.5">
+                        Κλειστά
+                      </span>
                     )}
                   </div>
                 );
@@ -473,8 +491,10 @@ export default function AppointmentsPage() {
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-12.5 sm:min-h-15 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center ${
-                          !isOpenSlot && !appt ? 'bg-slate-100/40 dark:bg-slate-950/50' : 'bg-white dark:bg-slate-900'
+                        className={`p-1 min-h-12.5 sm:min-h-15 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center transition-colors ${
+                          !isOpenSlot && !appt 
+                            ? 'bg-slate-200/50 dark:bg-slate-950/90 [background-image:linear-gradient(135deg,#0000000a_10%,transparent_10%,transparent_50%,#0000000a_50%,#0000000a_60%,transparent_60%,transparent)] dark:[background-image:linear-gradient(135deg,#ffffff08_10%,transparent_10%,transparent_50%,#ffffff08_50%,#ffffff08_60%,transparent_60%,transparent)] [background-size:12px_12px]' 
+                            : 'bg-white dark:bg-slate-900'
                         }`}
                       >
                         {appt ? (
@@ -497,7 +517,11 @@ export default function AppointmentsPage() {
                           >
                             +
                           </div>
-                        ) : null}
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center opacity-30 select-none">
+                            <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-600">—</span>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
