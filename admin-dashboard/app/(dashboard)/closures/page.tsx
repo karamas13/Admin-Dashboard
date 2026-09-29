@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '@/services/api';
 import { 
   TrashIcon, 
@@ -10,10 +10,13 @@ import {
   ClockIcon, 
   CheckCircleIcon, 
   ExclamationTriangleIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  XMarkIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
+import { useUnsavedChangesWarning } from '@/hooks/useUnsavedChangesWarning';
 
 export interface ScheduleException {
   id?: string;
@@ -41,8 +44,7 @@ const DAYS_OF_WEEK = [
 const TIME_OPTIONS = Array.from({ length: 33 }, (_, i) => {
   const hour = Math.floor(i / 2) + 7;
   const minute = i % 2 === 0 ? '00' : '30';
-  const str = `${hour.toString().padStart(2, '0')}:${minute}`;
-  return str;
+  return `${hour.toString().padStart(2, '0')}:${minute}`;
 });
 
 const getReasonLabel = (code: string) => {
@@ -79,6 +81,8 @@ export default function ScheduleExceptionsPage() {
     '6': [],
     '7': [],
   });
+  const [initialWorkingHours, setInitialWorkingHours] = useState<Record<string, Array<{ start: string; end: string }>> | null>(null);
+
   const [isSavingHours, setIsSavingHours] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -106,33 +110,48 @@ export default function ScheduleExceptionsPage() {
     const data = settings?.settings || settings;
     if (data?.working_hours_json && typeof data.working_hours_json === 'object') {
       setWorkingHours(data.working_hours_json);
+      setInitialWorkingHours(data.working_hours_json);
     }
   }, [settings]);
 
-  // Αποθήκευση Εβδομαδιαίου Ωραρίου
- const handleSaveWeeklyHours = async () => {
-  try {
-    setIsSavingHours(true);
-    setSuccessMsg('');
-    setErrorMsg('');
+  // Track dirty state for working hours
+  const isDirty = useMemo(() => {
+    if (!initialWorkingHours) return false;
+    return JSON.stringify(workingHours) !== JSON.stringify(initialWorkingHours);
+  }, [workingHours, initialWorkingHours]);
 
-    const data = settings?.settings || settings || {};
+  // Unsaved changes navigation failsafe
+  const {
+    showPrompt: showNavModal,
+    confirmNavigation,
+    cancelNavigation,
+  } = useUnsavedChangesWarning(isDirty);
 
-    const payload = {
-      ...data,
-      working_hours_json: workingHours,
-    };
+  // Save Weekly Hours
+  const handleSaveWeeklyHours = async () => {
+    try {
+      setIsSavingHours(true);
+      setSuccessMsg('');
+      setErrorMsg('');
 
-    await api.updateSettings(payload, selectedClinic?.id);
-    await fetchSettings(true); // Force-refresh settings cache in context
-    setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
-  } catch (err: any) {
-    console.error('Error saving weekly hours:', err);
-    setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
-  } finally {
-    setIsSavingHours(false);
-  }
-};
+      const data = settings?.settings || settings || {};
+
+      const payload = {
+        ...data,
+        working_hours_json: workingHours,
+      };
+
+      await api.updateSettings(payload, selectedClinic?.id);
+      await fetchSettings(true); // Force-refresh settings cache in context
+      setInitialWorkingHours(workingHours);
+      setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
+    } catch (err: any) {
+      console.error('Error saving weekly hours:', err);
+      setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
+    } finally {
+      setIsSavingHours(false);
+    }
+  };
 
   const toggleHistory = async () => {
     const nextState = !showHistory;
@@ -226,7 +245,60 @@ export default function ScheduleExceptionsPage() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 sm:space-y-8 max-w-7xl mx-auto pb-28">
+      {/* ------------------------------------------------------------- */}
+      {/* POPUP: PAGE LEAVE / ROUTE NAVIGATION WARNING MODAL            */}
+      {/* ------------------------------------------------------------- */}
+      {showNavModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3 text-amber-500">
+                <div className="p-2.5 bg-amber-50 dark:bg-amber-950/60 rounded-xl">
+                  <ExclamationTriangleIcon className="w-6 h-6 shrink-0" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Αποχώρηση από τη σελίδα;
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Έχετε μη αποθηκευμένες αλλαγές στο ωράριο.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={cancelNavigation}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+              Εάν αποχωρήσετε τώρα, οι τροποποιήσεις που κάνατε στο εβδομαδιαίο ωράριο της κλινικής θα χαθούν.
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={cancelNavigation}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                Παραμονή στη σελίδα
+              </button>
+              <button
+                type="button"
+                onClick={confirmNavigation}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs"
+              >
+                Αποχώρηση χωρίς αποθήκευση
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Page Main Header */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -279,9 +351,20 @@ export default function ScheduleExceptionsPage() {
             type="button"
             disabled={isSavingHours || isReadOnly}
             onClick={handleSaveWeeklyHours}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-50 text-center shrink-0"
+            className={`w-full sm:w-auto px-4 py-2.5 font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+              isDirty
+                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
           >
-            {isSavingHours ? 'Αποθήκευση...' : 'Αποθήκευση Ωραρίου'}
+            {isSavingHours ? (
+              <>
+                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                <span>Αποθήκευση...</span>
+              </>
+            ) : (
+              <span>Αποθήκευση Ωραρίου</span>
+            )}
           </button>
         </div>
 
@@ -409,7 +492,7 @@ export default function ScheduleExceptionsPage() {
             <button
               onClick={() => setIsAddModalOpen(true)}
               disabled={isActionDisabled}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
               <PlusIcon className="w-4 h-4 shrink-0" />
               <span>Νέα Εξαίρεση</span>
@@ -475,7 +558,7 @@ export default function ScheduleExceptionsPage() {
                         <button
                           onClick={() => handleDeleteException(itemId)}
                           disabled={isDeleting === itemId || isActionDisabled}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                           title="Διαγραφή"
                         >
                           <TrashIcon className="w-4 h-4" />
@@ -537,6 +620,37 @@ export default function ScheduleExceptionsPage() {
         </div>
       </div>
 
+      {/* Floating Bottom Save Banner */}
+      {isDirty && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl bg-slate-900/95 dark:bg-slate-800/95 text-white backdrop-blur-md p-3.5 md:p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <p className="text-xs font-medium text-slate-200 truncate">
+              Έχετε μη αποθηκευμένες αλλαγές στο ωράριο
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSavingHours || isReadOnly}
+            onClick={handleSaveWeeklyHours}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-md transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+          >
+            {isSavingHours ? (
+              <>
+                <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
+                <span>Αποθήκευση...</span>
+              </>
+            ) : (
+              <span>Αποθήκευση</span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* =========================================================================
           MODAL ADD EXCEPTION (WITH FRIENDLY TIME SELECTORS)
          ========================================================================= */}
@@ -549,7 +663,7 @@ export default function ScheduleExceptionsPage() {
               </h3>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -564,7 +678,7 @@ export default function ScheduleExceptionsPage() {
                   <button
                     type="button"
                     onClick={() => { setAvailabilityEffect('closed'); setReasonCode('holiday'); }}
-                    className={`p-2.5 rounded-xl font-bold border transition-colors ${
+                    className={`p-2.5 rounded-xl font-bold border transition-colors cursor-pointer ${
                       availabilityEffect === 'closed'
                         ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
@@ -575,7 +689,7 @@ export default function ScheduleExceptionsPage() {
                   <button
                     type="button"
                     onClick={() => { setAvailabilityEffect('open'); setReasonCode('extra_hours'); }}
-                    className={`p-2.5 rounded-xl font-bold border transition-colors ${
+                    className={`p-2.5 rounded-xl font-bold border transition-colors cursor-pointer ${
                       availabilityEffect === 'open'
                         ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
@@ -704,14 +818,14 @@ export default function ScheduleExceptionsPage() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Ακύρωση
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? 'Αποθήκευση...' : 'Προσθήκη'}
                 </button>
