@@ -1,13 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { 
+  FiCalendar, 
+  FiClock, 
+  FiXCircle, 
+  FiRefreshCw, 
+  FiPlus, 
+  FiChevronLeft, 
+  FiChevronRight,
+  FiUser,
+  FiPhone,
+  FiSlash
+} from 'react-icons/fi';
 import AppointmentDetailsPanel from '@/components/appointment-details';
 import CreateAppointmentModal from '@/components/create-appointment-modal';
 import { Appointment, AppointmentStatus } from '@/types';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
-import { BsChevronBarLeft, BsChevronBarRight } from "react-icons/bs";
 
 const DEFAULT_TIME_SLOTS = [
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', 
@@ -26,11 +37,44 @@ const GREEK_LABEL_MAP: Record<string, string> = {
   unknown: 'Γενικό Ραντεβού',
 };
 
+// Semantic status styling based on UI design systems
+const STATUS_CONFIG: Record<AppointmentStatus, { label: string; badge: string; indicator: string }> = {
+  booked: {
+    label: 'Επιβεβαιώμενο',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/60',
+    indicator: 'bg-emerald-500',
+  },
+  pending: {
+    label: 'Σε αναμονή',
+    badge: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60',
+    indicator: 'bg-amber-500',
+  },
+  rescheduled: {
+    label: 'Επαναπρογραμματισμένο',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60',
+    indicator: 'bg-blue-500',
+  },
+  expired: {
+    label: 'Έληξε',
+    badge: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+    indicator: 'bg-slate-400',
+  },
+  failed: {
+    label: 'Απέτυχε',
+    badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60',
+    indicator: 'bg-rose-500',
+  },
+  cancelled: {
+    label: 'Ακυρώθηκε',
+    badge: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/60',
+    indicator: 'bg-rose-500',
+  },
+};
+
 export default function AppointmentsPage() {
   const { selectedClinic } = useClinic();
   const { settings, fetchSettings, fetchAppointments: fetchContextAppointments, appointments: contextAppointments } = useDashboard(); 
-  
-  // Changed default view mode to 'week'
+
   const [viewMode, setViewMode] = useState<'day' | 'week'>('week');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -231,213 +275,221 @@ export default function AppointmentsPage() {
     setIsCreateOpen(true);
   };
 
-  const getStatusBadgeStyles = (status: AppointmentStatus) => {
-    switch (status) {
-      case 'booked': return 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60';
-      case 'pending': return 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/60';
-      case 'rescheduled': return 'bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60';
-      case 'expired': return 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 border-gray-200 dark:border-slate-700';
-      case 'failed': return 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60';
-      case 'cancelled': return 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/60';
-      default: return 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700';
-    }
-  };
+  const activeAppointments = useMemo(
+    () => appointments.filter(a => a.status !== 'cancelled'),
+    [appointments]
+  );
 
-  const getStatusLabel = (status: AppointmentStatus) => {
-    switch (status) {
-      case 'booked': return 'Επιβεβαιώμενο';
-      case 'pending': return 'Σε αναμονή';
-      case 'rescheduled': return 'Επαναπρογραμματισμένο';
-      case 'expired': return 'Έληξε';
-      case 'failed': return 'Απέτυχε';
-      case 'cancelled': return 'Ακυρώθηκε';
-      default: return 'Διαθέσιμο';
-    }
-  };
+  const currentDateIso = formatDateString(currentDate);
 
-  const activeAppointments = appointments.filter(a => a.status !== 'cancelled');
+  const stats = useMemo(() => {
+    const activeToday = activeAppointments.filter(a => a.start_at && a.start_at.includes(currentDateIso)).length;
+    const workingSlotCount = dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length;
+    const openSlots = Math.max(0, workingSlotCount - activeToday);
+    const cancelledToday = appointments.filter(a => a.start_at && a.start_at.includes(currentDateIso) && a.status === 'cancelled').length;
+    const rescheduledTotal = appointments.filter(a => a.status === 'rescheduled').length;
+
+    return { activeToday, openSlots, cancelledToday, rescheduledTotal };
+  }, [activeAppointments, appointments, currentDate, currentDateIso, dynamicTimeSlots, workingHours]);
 
   return (
-    <div className="space-y-4 md:space-y-6 max-w-full overflow-hidden">
-      {/* Top Controls Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center justify-between sm:justify-start gap-2">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit">
-            <button 
-              onClick={() => setViewMode('day')}
-              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === 'day' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
-            >
-              Ημέρα
-            </button>
-            <button 
-              onClick={() => setViewMode('week')}
-              className={`px-3 sm:px-4 py-1.5 text-xs font-semibold rounded-lg transition-all ${viewMode === 'week' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
-            >
-              Εβδομάδα
-            </button>
+    <div className="space-y-5 max-w-full overflow-hidden text-slate-900 dark:text-slate-100">
+      {/* Integrated Header Toolbar */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          
+          {/* Left Controls: View Switcher & Date Navigation */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Mode Toggle */}
+            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200/60 dark:border-slate-700/50">
+              <button 
+                onClick={() => setViewMode('day')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  viewMode === 'day' 
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Ημέρα
+              </button>
+              <button 
+                onClick={() => setViewMode('week')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                  viewMode === 'week' 
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                Εβδομάδα
+              </button>
+            </div>
+
+            {/* Date Stepper */}
+            <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 overflow-hidden">
+              <button 
+                onClick={handlePrev}
+                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border-r border-slate-200 dark:border-slate-700 transition-colors"
+                title="Προηγούμενο"
+                aria-label="Προηγούμενη περίοδος"
+              >
+                <FiChevronLeft className="text-base" />
+              </button>
+              <button 
+                onClick={handleToday}
+                className="px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border-r border-slate-200 dark:border-slate-700"
+              >
+                Σήμερα
+              </button>
+              <button 
+                onClick={handleNext}
+                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                title="Επόμενο"
+                aria-label="Επόμενη περίοδος"
+              >
+                <FiChevronRight className="text-base" />
+              </button>
+            </div>
+
+            {/* Current Range Label */}
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 px-1">
+              <FiCalendar className="text-slate-400 dark:text-slate-500" />
+              <span className="capitalize">
+                {viewMode === 'day' 
+                  ? currentDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                  : `${daysOfWeek[0].formattedDate} — ${daysOfWeek[6].formattedDate}`
+                }
+              </span>
+            </div>
           </div>
 
-          <button 
-            onClick={() => handleOpenCreate()}
-            className="sm:hidden px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs"
-          >
-            + Νέο
-          </button>
-        </div>
-
-        {/* Navigation & Dates */}
-        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 sm:gap-3">
-          <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 overflow-hidden shadow-xs">
-            <button 
-              onClick={handlePrev}
-              className="flex items-center justify-center p-2 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold"
-              title="Προηγούμενο"
-            >
-              <BsChevronBarLeft className='text-base sm:text-lg sm:mr-1'/> 
-              <span className="hidden sm:inline">{viewMode === 'day' ? 'Προηγούμενη Ημέρα' : 'Προηγούμενη Εβδομάδα'}</span>
-            </button>
-            <button 
-              onClick={handleNext}
-              className="flex items-center justify-center p-2 px-2.5 sm:px-3 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-xs font-bold"
-              title="Επόμενο"
-            >
-              <span className="hidden sm:inline">{viewMode === 'day' ? 'Επόμενη Ημέρα' : 'Επόμενη Εβδομάδα'}</span>
-              <BsChevronBarRight className='text-base sm:text-lg sm:ml-1'/>
-            </button>
-          </div>
-
-          <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 text-center capitalize flex items-center justify-center gap-1.5 min-w-32.5 sm:min-w-42.5">
-            {viewMode === 'day' 
-              ? currentDate.toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })
-              : `${daysOfWeek[0].formattedDate} - ${daysOfWeek[6].formattedDate}`
-            }
-          </div>
-
-          <div className="flex items-center gap-2 ml-auto sm:ml-0">
-            <button 
-              onClick={handleToday}
-              className="px-3 py-1.5 text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors"
-            >
-              Σήμερα
-            </button>
+          {/* Right Action: Create New Appointment */}
+          <div className="flex items-center justify-end gap-3">
             <button 
               onClick={() => handleOpenCreate()}
-              className="hidden sm:block px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg shadow-xs transition-colors"
             >
-              + Νέο Ραντεβού
+              <FiPlus className="text-sm" />
+              <span>Νέο Ραντεβού</span>
             </button>
           </div>
         </div>
+
+        {/* Clean Operational Summary Metrics Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="p-2 rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+              <FiCalendar className="text-base" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ενεργά Ραντεβού</p>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">{stats.activeToday}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="p-2 rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+              <FiClock className="text-base" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Διαθέσιμα Slots</p>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">{stats.openSlots}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="p-2 rounded-md bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+              <FiXCircle className="text-base" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ακυρώσεις Ημέρας</p>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">{stats.cancelledToday}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+            <div className="p-2 rounded-md bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+              <FiRefreshCw className="text-base" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Επαναπρογραμματισμένα</p>
+              <p className="text-base font-bold text-slate-900 dark:text-slate-100">{stats.rescheduledTotal}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <span className="text-xl sm:text-2xl shrink-0">📅</span>
-          <div className="min-w-0">
-            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
-              {activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length}
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Ενεργά Ραντεβού</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <span className="text-xl sm:text-2xl shrink-0">🕒</span>
-          <div className="min-w-0">
-            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
-              {Math.max(0, dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length - activeAppointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate))).length)}
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Διαθέσιμα Slots</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-          <span className="text-xl sm:text-2xl shrink-0">❌</span>
-          <div className="min-w-0">
-            <p className="text-base sm:text-2xl font-bold text-slate-900 dark:text-slate-100 truncate">
-              {appointments.filter(a => a.start_at && a.start_at.includes(formatDateString(currentDate)) && a.status === 'cancelled').length}
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Ακυρώσεις</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3 col-span-2 lg:col-span-1">
-          <span className="text-xl sm:text-2xl text-blue-500 shrink-0">🔄</span>
-          <div className="min-w-0">
-            <p className="text-sm sm:text-xl font-bold text-blue-600 dark:text-blue-400 truncate">
-              {appointments.filter(a => a.status === 'rescheduled').length}
-            </p>
-            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">Επαναπρογραμματισμένα</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Day View */}
+      {/* Main Schedule Container */}
       {viewMode === 'day' ? (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        /* Day View Layout */
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {dynamicTimeSlots.map((time) => {
               const targetDayStr = formatDateString(currentDate);
               const isOpenSlot = isTimeWithinWorkingHours(currentDate, time);
               const appt = activeAppointments.find(a => isSlotMatching(a.start_at, targetDayStr, time));
+              const statusCfg = appt ? (STATUS_CONFIG[appt.status] || STATUS_CONFIG.booked) : null;
 
               return (
                 <div 
                   key={time} 
                   className={`flex transition-colors ${
                     !isOpenSlot && !appt 
-                      ? 'bg-slate-100/80 dark:bg-slate-950/80 [background-image:linear-gradient(135deg,#00000008_10%,transparent_10%,transparent_50%,#00000008_50%,#00000008_60%,transparent_60%,transparent)] dark:[background-image:linear-gradient(135deg,#ffffff08_10%,transparent_10%,transparent_50%,#ffffff08_50%,#ffffff08_60%,transparent_60%,transparent)] [background-size:16px_16px]' 
-                      : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/40'
+                      ? 'bg-slate-50/70 dark:bg-slate-950/40' 
+                      : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
                   }`}
                 >
-                  <div className={`w-14 sm:w-20 md:w-24 px-1.5 sm:px-3 py-3 text-[11px] sm:text-xs font-bold border-r flex items-center justify-center shrink-0 ${
+                  {/* Time Label Column */}
+                  <div className={`w-16 sm:w-20 md:w-24 px-3 py-3.5 text-xs font-semibold border-r flex items-center justify-center shrink-0 ${
                     !isOpenSlot && !appt 
-                      ? 'text-slate-400 dark:text-slate-600 bg-slate-200/50 dark:bg-slate-950/90 border-slate-200 dark:border-slate-800' 
-                      : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/50'
+                      ? 'text-slate-400 dark:text-slate-600 bg-slate-100/50 dark:bg-slate-950/80 border-slate-200/80 dark:border-slate-800' 
+                      : 'text-slate-500 dark:text-slate-400 border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/40'
                   }`}>
                     {time}
                   </div>
-                  <div className="flex-1 p-1.5 sm:p-2 min-h-13 flex items-center overflow-hidden">
+
+                  {/* Slot Content Area */}
+                  <div className="flex-1 p-2 min-h-[52px] flex items-center">
                     {appt ? (
+                      /* Scheduled Appointment Row Card */
                       <div 
                         onClick={() => setSelectedAppointment(appt)}
-                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-2.5 sm:p-3 rounded-xl border cursor-pointer hover:shadow-xs transition-all gap-2 sm:gap-4 ${
-                          appt.status === 'booked' ? 'border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/40 dark:bg-emerald-950/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/50' :
-                          appt.status === 'pending' ? 'border-amber-200 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/30 hover:bg-amber-50 dark:hover:bg-amber-950/50' :
-                          appt.status === 'rescheduled' ? 'border-blue-200 dark:border-blue-800/60 bg-blue-50/40 dark:bg-blue-950/30 hover:bg-blue-50 dark:hover:bg-blue-950/50' :
-                          'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50'
-                        }`}
+                        className={`w-full flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border cursor-pointer transition-all gap-2 sm:gap-4 hover:shadow-xs ${statusCfg?.badge}`}
                       >
-                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-                          <div className={`w-1.5 h-6 sm:h-8 rounded-full shrink-0 ${
-                            appt.status === 'booked' ? 'bg-emerald-500' :
-                            appt.status === 'pending' ? 'bg-amber-500' :
-                            appt.status === 'rescheduled' ? 'bg-blue-500' : 'bg-slate-400'
-                          }`} />
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${statusCfg?.indicator}`} />
                           <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{getPatientName(appt)}</p>
-                            <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
+                            <p className="text-xs sm:text-sm font-semibold truncate">{getPatientName(appt)}</p>
+                            <p className="text-[11px] opacity-80 truncate">
                               {getAppointmentTypeLabel(appt.appointment_type_code)}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 shrink-0 border-t sm:border-0 border-slate-200/40 dark:border-slate-700/60 pt-1.5 sm:pt-0">
-                          <span className="text-[11px] sm:text-xs font-semibold text-slate-600 dark:text-slate-400 truncate">{getPatientPhone(appt)}</span>
-                          <span className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border font-bold ${getStatusBadgeStyles(appt.status)}`}>
-                            {getStatusLabel(appt.status)}
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 border-t sm:border-0 border-current/10 pt-2 sm:pt-0">
+                          <span className="text-xs font-mono opacity-80 flex items-center gap-1">
+                            <FiPhone className="text-xs inline" />
+                            {getPatientPhone(appt)}
+                          </span>
+                          <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-current/20 font-semibold">
+                            {statusCfg?.label}
                           </span>
                         </div>
                       </div>
                     ) : isOpenSlot ? (
+                      /* Available Working Slot Trigger */
                       <button 
                         onClick={() => handleOpenCreate(targetDayStr, time)}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs font-semibold text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 border border-dashed border-transparent hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 rounded-xl transition-all"
+                        className="w-full text-left px-3 py-2 text-xs font-medium text-slate-400 hover:text-blue-600 dark:text-slate-500 dark:hover:text-blue-400 border border-dashed border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 rounded-lg transition-all flex items-center gap-2"
                       >
-                        + <span className="hidden sm:inline">Διαθέσιμο ραντεβού</span>
+                        <FiPlus className="text-xs" />
+                        <span>Διαθέσιμο slot — Κάντε κλικ για νέα καταχώρηση</span>
                       </button>
                     ) : (
-                      <div className="flex items-center gap-1.5 px-2 sm:px-4">
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400/60 dark:bg-slate-600/60" />
-                        <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tracking-wide uppercase">
-                          Εκτός Ωραρίου
+                      /* Non-Working Hours State */
+                      <div className="flex items-center gap-2 px-3 text-slate-400 dark:text-slate-600 select-none">
+                        <FiSlash className="text-xs" />
+                        <span className="text-xs font-medium uppercase tracking-wider text-[10px]">
+                          Εκτός ωραρίου λειτουργίας
                         </span>
                       </div>
                     )}
@@ -448,11 +500,12 @@ export default function AppointmentsPage() {
           </div>
         </div>
       ) : (
-        /* Week View */
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-x-auto">
-          <div className="min-w-175">
-            <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="p-2 sm:p-3 text-center text-xs font-bold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">
+        /* Week View Grid */
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-x-auto">
+          <div className="min-w-[700px]">
+            {/* Grid Header */}
+            <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/80">
+              <div className="p-3 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">
                 Ώρα
               </div>
               {daysOfWeek.map((day) => {
@@ -461,15 +514,18 @@ export default function AppointmentsPage() {
                 const isDayClosed = !workingHours[dayKey] || workingHours[dayKey].length === 0;
 
                 return (
-                  <div key={day.name} className={`p-2 sm:p-3 text-center border-r border-slate-100 dark:border-slate-800 last:border-0 transition-colors ${
-                    isDayClosed ? 'bg-slate-200/40 dark:bg-slate-950/80' : ''
-                  }`}>
-                    <p className={`text-[11px] sm:text-xs font-bold truncate ${isDayClosed ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                  <div 
+                    key={day.name} 
+                    className={`p-3 text-center border-r border-slate-100 dark:border-slate-800 last:border-0 transition-colors ${
+                      isDayClosed ? 'bg-slate-400/50 dark:bg-slate-950/60' : ''
+                    }`}
+                  >
+                    <p className={`text-xs font-semibold truncate ${isDayClosed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
                       {day.name}
                     </p>
-                    <p className="text-[9px] sm:text-[10px] font-medium text-slate-400 dark:text-slate-500">{day.formattedDate}</p>
+                    <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">{day.formattedDate}</p>
                     {isDayClosed && (
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mt-0.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 block mt-1">
                         Κλειστά
                       </span>
                     )}
@@ -478,48 +534,53 @@ export default function AppointmentsPage() {
               })}
             </div>
 
+            {/* Grid Body */}
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {dynamicTimeSlots.map((time) => (
                 <div key={time} className="grid grid-cols-8">
-                  <div className="p-2 sm:p-3 text-center text-[11px] sm:text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-50/80 dark:bg-slate-900/80 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center sticky left-0 z-10">
+                  {/* Time Axis Column */}
+                  <div className="p-2.5 text-center text-xs font-mono font-medium text-slate-400 dark:text-slate-500 bg-slate-50/40 dark:bg-slate-900/60 border-r border-slate-100 dark:border-slate-800 flex items-center justify-center sticky left-0 z-10">
                     {time}
                   </div>
+
+                  {/* Day Slots */}
                   {daysOfWeek.map((day) => {
                     const isOpenSlot = isTimeWithinWorkingHours(day.dateObject, time);
                     const appt = activeAppointments.find(a => isSlotMatching(a.start_at, day.isoString, time));
+                    const statusCfg = appt ? (STATUS_CONFIG[appt.status] || STATUS_CONFIG.booked) : null;
 
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-12.5 sm:min-h-15 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center transition-colors ${
+                        className={`p-1 min-h-[56px] border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center transition-colors ${
                           !isOpenSlot && !appt 
-                            ? 'bg-slate-200/50 dark:bg-slate-950/90 [background-image:linear-gradient(135deg,#0000000a_10%,transparent_10%,transparent_50%,#0000000a_50%,#0000000a_60%,transparent_60%,transparent)] dark:[background-image:linear-gradient(135deg,#ffffff08_10%,transparent_10%,transparent_50%,#ffffff08_50%,#ffffff08_60%,transparent_60%,transparent)] [background-size:12px_12px]' 
+                            ? 'bg-slate-400/50 dark:bg-slate-950/50' 
                             : 'bg-white dark:bg-slate-900'
                         }`}
                       >
                         {appt ? (
+                          /* Compact Appointment Card for Week Grid */
                           <div 
                             onClick={() => setSelectedAppointment(appt)}
-                            className={`w-full p-1 sm:p-1.5 rounded-lg text-[9px] sm:text-[10px] font-medium border cursor-pointer overflow-hidden ${
-                              appt.status === 'booked' ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200' :
-                              appt.status === 'pending' ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200' :
-                              appt.status === 'rescheduled' ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200' :
-                              'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'
-                            }`}
+                            className={`w-full h-full p-2 rounded-md text-[11px] font-medium border cursor-pointer overflow-hidden transition-all hover:shadow-xs flex flex-col justify-between ${statusCfg?.badge}`}
                           >
-                            <div className="font-bold truncate">{getPatientName(appt)}</div>
-                            <div className="opacity-75 truncate hidden sm:block">{getAppointmentTypeLabel(appt.appointment_type_code)}</div>
+                            <div className="font-semibold truncate leading-tight">{getPatientName(appt)}</div>
+                            <div className="text-[10px] opacity-75 truncate">{getAppointmentTypeLabel(appt.appointment_type_code)}</div>
                           </div>
                         ) : isOpenSlot ? (
-                          <div 
-                            className="w-full h-full text-center text-slate-900 dark:text-slate-600 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer text-xs font-bold hover:bg-blue-50/40 dark:hover:bg-blue-950/40 rounded transition-all" 
+                          /* Clean Quick Add Hover Trigger */
+                          <button 
+                            className="w-full h-full text-slate-300 hover:text-blue-600 dark:text-slate-700 dark:hover:text-blue-400 opacity-0 hover:opacity-100 flex items-center justify-center cursor-pointer text-sm font-semibold hover:bg-blue-50/50 dark:hover:bg-blue-950/30 rounded transition-all" 
                             onClick={() => handleOpenCreate(day.isoString, time)}
+                            title="Προσθήκη Ραντεβού"
+                            aria-label={`Προσθήκη ραντεβού στις ${time}`}
                           >
-                            +
-                          </div>
+                            <FiPlus />
+                          </button>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center opacity-30 select-none">
-                            <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-600">—</span>
+                          /* Closed Cell Indicator */
+                          <div className="w-full h-full flex items-center justify-center opacity-20 select-none">
+                            <span className="text-xs text-red-600 dark:text-slate-600">—</span>
                           </div>
                         )}
                       </div>
@@ -532,7 +593,7 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Modals & Panels */}
+      {/* Appointment Detail Sidebar Panel */}
       {selectedAppointment && (
         <AppointmentDetailsPanel 
           appointment={selectedAppointment} 
@@ -541,6 +602,7 @@ export default function AppointmentsPage() {
         />        
       )}
 
+      {/* Create Appointment Modal */}
       {isCreateOpen && (
         <CreateAppointmentModal 
           initialDate={selectedSlot?.date}

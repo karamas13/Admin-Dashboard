@@ -14,7 +14,8 @@ import {
   XMarkIcon,
   CreditCardIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { ClinicProvider, useClinic } from '@/context/ClinicContext';
 import { DashboardProvider } from '@/context/DashboardContext';
@@ -46,7 +47,7 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
   const currentTitle = 
     pathname === '/' ? 'Επισκόπηση' :
     pathname === '/appointments' ? 'Ραντεβού' :
-    pathname === '/closures' ? 'Εξαιρέσεις Ωραρίου' :
+    pathname === '/closures' ? 'Διαχείριση Ωραρίου' :
     pathname === '/callbacks' ? 'Αιτήματα Επικοινωνίας' :
     pathname === '/settings' ? 'Ρυθμίσεις' :
     pathname === '/billing' ? 'Χρέωση & Χρήση' : 'Dashboard';
@@ -57,9 +58,6 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
       {/* 1. Mobile Top Header */}
       <header className="md:hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-3 flex items-center justify-between border-b border-blue-100 dark:border-slate-800 shrink-0 z-30 transition-colors">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-xs">
-            <span>🫁</span>
-          </div>
           <span className="text-sm font-bold truncate max-w-35 sm:max-w-50">
             {selectedClinic?.name || 'Medical Clinic'}
           </span>
@@ -100,42 +98,40 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
           {/* Sidebar Header */}
           <div className={`flex items-center border-b border-blue-100 dark:border-slate-800 h-16 transition-all duration-300 ${
              isSidebarCollapsed ? 'justify-center px-2' : 'justify-between sm:p-5'
-           }`}>           
-             <div className="flex items-center gap-3 overflow-hidden">           
-               <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-xs">
-                 <span>🫁</span>           
-               </div>           
-               {!isSidebarCollapsed && (           
-                 <div className="truncate transition-opacity duration-200">           
+           }`}>          
+             <div className="flex items-center gap-3 overflow-hidden">          
+               {!isSidebarCollapsed && (          
+                 <div className="truncate transition-opacity duration-200">          
                    <h2 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                     {selectedClinic?.name || 'Medical Dashboard'}           
-                   </h2>           
+                     {selectedClinic?.name || 'Medical Dashboard'}          
+                   </h2>          
                    <p className="text-[11px] text-slate-500 dark:text-slate-400 capitalize truncate">
-                     Ρόλος: {selectedClinic?.role || 'Staff'}           
-                   </p>           
-                 </div>           
-               )}           
-          </div>           
-           
-  {/* Collapse toggle (Desktop/Tablet) */}
-  <button 
-    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-    className={`hidden md:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
-      isSidebarCollapsed ? 'absolute -right-3 top-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-md z-20' : ''
-    }`}
-    title={isSidebarCollapsed ? "Επέκταση Sidebar" : "Σύμπτυξη Sidebar"}
-  >
-    {isSidebarCollapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronLeftIcon className="w-4 h-4" />}
-  </button>
+                     Ρόλος: {selectedClinic?.role || 'Staff'}          
+                   </p>          
+                 </div>          
+               )}          
+             </div>          
+            
+            {/* Collapse toggle (Desktop/Tablet) */}
+            <button 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className={`hidden md:flex p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${
+                isSidebarCollapsed ? 'absolute -right-3 top-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-md z-20' : ''
+              }`}
+              title={isSidebarCollapsed ? "Επέκταση Sidebar" : "Σύμπτυξη Sidebar"}
+            >
+              {isSidebarCollapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronLeftIcon className="w-4 h-4" />}
+            </button>
 
-  {/* Mobile Close Button */}
-  <button 
-    onClick={() => setIsMobileMenuOpen(false)}
-    className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
-  >
-    <XMarkIcon className="w-5 h-5" />
-  </button>
-</div>
+            {/* Mobile Close Button */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
+            >
+              <XMarkIcon className="w-5 h-5" />
+            </button>
+          </div>
+
           {/* Navigation Items */}
           <nav className="mt-4 px-3 space-y-1">
             {navItems.map((item) => {
@@ -160,20 +156,27 @@ function InnerDashboardLayout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* User Footer */}
-        <div className="p-3 border-t border-blue-100 dark:border-slate-800 space-y-2">
-          <div className={`flex items-center gap-3 p-2 rounded-xl bg-slate-50/50 dark:bg-slate-800/40 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-            <div className="w-8 h-8 bg-blue-100 dark:bg-slate-700 text-blue-800 dark:text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0 uppercase shadow-2xs">
-              {userEmail.charAt(0)}
+        {/* User Footer - Discrete "Ο λογαριασμός μου" Tab */}
+        <div className="p-3 border-t border-blue-100 dark:border-slate-800 space-y-1.5">
+          <div 
+            title={isSidebarCollapsed ? userEmail : undefined}
+            className={`px-3 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300 transition-colors ${
+              isSidebarCollapsed ? 'flex justify-center p-2' : ''
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />
+              {!isSidebarCollapsed && (
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                    Ο λογαριασμός μου
+                  </span>
+                  <span className="block text-xs font-medium text-slate-900 dark:text-slate-200 truncate">
+                    {userEmail}
+                  </span>
+                </div>
+              )}
             </div>
-            {!isSidebarCollapsed && (
-              <div className="truncate">
-                <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{userEmail}</p>
-                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full inline-block animate-pulse"></span> Σύνδεση
-                </span>
-              </div>
-            )}
           </div>
 
           <button 

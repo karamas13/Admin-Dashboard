@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
 import { 
@@ -10,7 +10,10 @@ import {
   ClockIcon, 
   CheckCircleIcon, 
   ExclamationTriangleIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ShieldExclamationIcon,
+  DocumentTextIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 interface Plan {
@@ -62,7 +65,6 @@ export default function BillingPage() {
     fetchBillingRef.current = fetchBilling;
   }, [fetchBilling]);
 
-  // Fetch billing data whenever clinic finishes loading or changes
   useEffect(() => {
     if (!isClinicLoading && selectedClinic?.id) {
       fetchBillingRef.current();
@@ -71,49 +73,30 @@ export default function BillingPage() {
 
   const isLoading = isClinicLoading || (loadingTab === 'billing' && !cachedBilling);
 
-  if (isLoading) {
-    return (
-      <div className="p-6 space-y-6 animate-pulse max-w-7xl mx-auto dark:bg-slate-900 min-h-screen">
-        <div className="h-8 w-64 bg-gray-200 dark:bg-slate-800 rounded"></div>
-        <div className="h-24 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="h-32 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-          <div className="h-32 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-          <div className="h-32 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-          <div className="h-32 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-        </div>
-        <div className="h-64 bg-gray-200 dark:bg-slate-800 rounded-xl"></div>
-      </div>
-    );
-  }
+  const rawData = useMemo(() => {
+    return (cachedBilling as Record<string, any>)?.data || cachedBilling;
+  }, [cachedBilling]);
 
-  if (!isOwner) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto dark:bg-slate-900 min-h-screen">
-        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 rounded-xl text-sm font-medium">
-          ⚠️ Δεν έχετε δικαιώματα πρόσβασης στη σελίδα χρέωσης. Μόνο ο Owner της κλινικής έχει πρόσβαση.
-        </div>
-      </div>
-    );
-  }
-
-  const rawData = (cachedBilling as Record<string, any>)?.data || cachedBilling;
   const voiceAccess: VoiceAccess | undefined = rawData?.voice_access;
 
-  let periods: BillingPeriod[] = [];
-  if (Array.isArray(rawData?.billing_periods)) {
-    periods = rawData.billing_periods;
-  } else if (rawData?.billing_period) {
-    periods = [rawData.billing_period];
-  } else if (Array.isArray(rawData)) {
-    periods = rawData;
-  }
+  const periods: BillingPeriod[] = useMemo(() => {
+    if (Array.isArray(rawData?.billing_periods)) {
+      return rawData.billing_periods;
+    } else if (rawData?.billing_period) {
+      return [rawData.billing_period];
+    } else if (Array.isArray(rawData)) {
+      return rawData;
+    }
+    return [];
+  }, [rawData]);
 
   const voiceState = voiceAccess?.state || 'unknown';
   const voiceReason = voiceAccess?.reason;
   const isVoiceAllowed = voiceState === 'allowed' || voiceState === 'active';
 
-  const activePeriod = periods.find((p) => p.billing_period_id === voiceAccess?.billing_period_id) || periods[0];
+  const activePeriod = useMemo(() => {
+    return periods.find((p) => p.billing_period_id === voiceAccess?.billing_period_id) || periods[0];
+  }, [periods, voiceAccess?.billing_period_id]);
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
@@ -129,7 +112,7 @@ export default function BillingPage() {
   };
 
   const formatPrice = (priceMinor?: string | number, currency = 'EUR') => {
-    if (priceMinor === undefined || priceMinor === null) return '€0.00';
+    if (priceMinor === undefined || priceMinor === null) return '€0,00';
     const amount = Number(priceMinor) / 100;
     return new Intl.NumberFormat('el-GR', { style: 'currency', currency }).format(amount);
   };
@@ -138,189 +121,316 @@ export default function BillingPage() {
     fetchBilling(true);
   };
 
-  return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto transition-colors duration-200 pb-12">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-200 dark:border-slate-800 pb-5">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-slate-100 flex items-center gap-2">
-            <CreditCardIcon className="w-6 h-6 text-blue-600 dark:text-blue-400 shrink-0" />
-            Billing & Call Usage
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-400 mt-1">
-            Επισκόπηση συνδρομής, χρήσης λεπτών, SMS και ιστορικού χρεώσεων για την κλινική{' '}
-            <span className="font-semibold text-gray-800 dark:text-slate-200">{selectedClinic?.name}</span>.
+  if (isLoading) {
+    return (
+      <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-900 dark:text-slate-100">
+        <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
+        <div className="h-16 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+        </div>
+        <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!isOwner) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto min-h-[60vh] flex items-center justify-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 p-6 rounded-xl shadow-xs text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
+            <ShieldExclamationIcon className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Περιορισμένη Πρόσβαση</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+            Δεν διαθέτετε τα απαραίτητα δικαιώματα για την προβολή των στοιχείων χρέωσης. Η πρόσβαση επιτρέπεται αποκλειστικά στον <span className="font-semibold text-slate-800 dark:text-slate-200">Ιδιοκτήτη (Owner)</span> της κλινικής.
           </p>
         </div>
+      </div>
+    );
+  }
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
-          <button
-            onClick={handleRefresh}
-            disabled={loadingTab === 'billing'}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-          >
-            <ArrowPathIcon className={`w-3.5 h-3.5 ${loadingTab === 'billing' ? 'animate-spin' : ''}`} />
-            Ανανέωση
-          </button>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-slate-300 bg-gray-100 dark:bg-slate-800 rounded-full border border-gray-200 dark:border-slate-700">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            Read-Only
+  // Υπολογισμοί ποσοστών χρήσης
+  const totalMinutes = activePeriod?.total_included_minutes || 1;
+  const usedMinutes = activePeriod?.used_minutes || 0;
+  const minutesPct = Math.min(100, Math.round((usedMinutes / totalMinutes) * 100));
+
+  const totalSms = (activePeriod?.included_sms_messages || 0) + (activePeriod?.extra_included_sms_messages || 0) || 1;
+  const usedSms = activePeriod?.used_sms_messages || 0;
+  const smsPct = Math.min(100, Math.round((usedSms / totalSms) * 100));
+
+  // Donut Graph SVG parameters
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto text-slate-900 dark:text-slate-100 pb-12">
+      {/* Κεφαλίδα / Toolbar */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <CreditCardIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                Συνδρομή & Χρήση Πόρων
+              </h1>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Επισκόπηση πλάνου, ορίων κλήσεων και ιστορικού τιμολόγησης για την κλινική{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
+              Μόνο Ανάγνωση
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Voice Access Status Banner */}
+      {/* Κατάσταση Πρόσβασης Φωνητικής Υπηρεσίας */}
       <div
-        className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs transition-all ${
+        className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs transition-colors ${
           isVoiceAllowed
-            ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-300'
-            : 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-300'
+            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-300'
+            : 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-950 dark:text-amber-300'
         }`}
       >
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl shrink-0 ${isVoiceAllowed ? 'bg-emerald-100 dark:bg-emerald-900/60' : 'bg-amber-100 dark:bg-amber-900/60'}`}>
+          <div
+            className={`p-2 rounded-lg shrink-0 ${
+              isVoiceAllowed
+                ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300'
+                : 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
+            }`}
+          >
             {isVoiceAllowed ? (
-              <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircleIcon className="w-5 h-5" />
             ) : (
-              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <ExclamationTriangleIcon className="w-5 h-5" />
             )}
           </div>
-          <div>
-            <div className="font-bold text-xs sm:text-sm capitalize flex items-center gap-2">
-              <span>Πρόσβαση Φωνητικού Βοηθού (Voice Access):</span>
-              <span className="font-extrabold uppercase tracking-wide">{voiceState}</span>
+          <div className="space-y-0.5">
+            <div className="text-xs sm:text-sm font-semibold flex items-center gap-2">
+              <span>Φωνητικός Βοηθός:</span>
+              <span className="font-bold uppercase tracking-wide">
+                {voiceState === 'allowed' || voiceState === 'active' ? 'ΕΝΕΡΓΟΣ' : voiceState}
+              </span>
             </div>
             {voiceReason && (
-              <div className="text-xs text-amber-800/80 dark:text-amber-400 mt-0.5 font-medium">
-                Αιτία: <span className="font-mono bg-amber-100/80 dark:bg-amber-900/80 px-1.5 py-0.5 rounded">{voiceReason}</span>
-              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-400">
+                Aιτιολογία: <span className="font-mono">{voiceReason}</span>
+              </p>
             )}
           </div>
         </div>
 
         <span
-          className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-lg border self-start sm:self-auto ${
+          className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border self-start sm:self-auto ${
             isVoiceAllowed
-              ? 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-              : 'bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+              ? 'bg-emerald-100/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
+              : 'bg-amber-100/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700'
           }`}
         >
-          {voiceState}
+          {isVoiceAllowed ? 'Ενεργή Πρόσβαση' : 'Περιορισμένη Πρόσβαση'}
         </span>
       </div>
 
-      {/* Metric Cards Grid */}
+      {/* Κατανάλωση Πόρων Τρέχουσας Περιόδου (Με SVG Donut Charts) */}
       {activePeriod && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Ενεργό Πλάνο</span>
-              <CreditCardIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100 capitalize">
-                {activePeriod.plan?.name || 'Starter'}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* 1. Στοιχεία Πλάνου */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider">Τρέχον Πλάνο</span>
+                <CreditCardIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">
-                {formatPrice(activePeriod.plan?.price_minor, activePeriod.plan?.currency)} / μήνα
-              </p>
+              <div className="mt-4">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 capitalize">
+                  {activePeriod.plan?.name || 'Βασικό Πλάνο'}
+                </h3>
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-1">
+                  {formatPrice(activePeriod.plan?.price_minor, activePeriod.plan?.currency)} <span className="text-xs font-normal text-slate-400">/ μήνα</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <ClockIcon className="w-4 h-4 shrink-0 text-slate-400" />
+              <span>
+                Περίοδος: {formatDate(activePeriod.starts_at)} — {formatDate(activePeriod.ends_at)}
+              </span>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+          {/* 2. Donut Chart - Λεπτά Ομιλίας */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span className="text-[11px] font-bold uppercase tracking-wider">Λεπτά Ομιλίας</span>
               <PhoneIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                {activePeriod.used_minutes ?? 0} <span className="text-xs text-slate-400 font-normal">/ {activePeriod.total_included_minutes ?? 0} min</span>
+
+            <div className="mt-3 flex items-center justify-between gap-4">
+              {/* Micro Donut Chart */}
+              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r={radius}
+                    className="stroke-slate-100 dark:stroke-slate-800"
+                    strokeWidth="8"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r={radius}
+                    className="stroke-emerald-500 transition-all duration-700 ease-out"
+                    strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={circumference - (minutesPct / 100) * circumference}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <span className="absolute text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {minutesPct}%
+                </span>
               </div>
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">
-                {activePeriod.remaining_minutes ?? 0} λεπτά υπόλοιπο
-              </p>
+
+              {/* Data labels */}
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Καταναλώθηκαν</p>
+                <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {usedMinutes} <span className="text-xs font-normal text-slate-400">/ {totalMinutes} λεπτά</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Υπόλοιπο:</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {activePeriod.remaining_minutes ?? 0} λεπτά
+              </span>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+          {/* 3. Donut Chart - Μηνύματα SMS */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span className="text-[11px] font-bold uppercase tracking-wider">Μηνύματα SMS</span>
-              <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                {activePeriod.used_sms_messages ?? 0} <span className="text-xs text-slate-400 font-normal">/ {(activePeriod.included_sms_messages ?? 0) + (activePeriod.extra_included_sms_messages ?? 0)} SMS</span>
+
+            <div className="mt-3 flex items-center justify-between gap-4">
+              {/* Micro Donut Chart */}
+              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r={radius}
+                    className="stroke-slate-100 dark:stroke-slate-800"
+                    strokeWidth="8"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r={radius}
+                    className="stroke-blue-500 transition-all duration-700 ease-out"
+                    strokeWidth="8"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={circumference - (smsPct / 100) * circumference}
+                    strokeLinecap="round"
+                    fill="transparent"
+                  />
+                </svg>
+                <span className="absolute text-xs font-bold text-slate-800 dark:text-slate-200">
+                  {smsPct}%
+                </span>
               </div>
-              <p className="text-xs text-purple-600 dark:text-purple-400 mt-1 font-semibold">
-                {activePeriod.remaining_sms_messages ?? 0} SMS διαθέσιμα
-              </p>
+
+              {/* Data labels */}
+              <div className="flex-1 space-y-1">
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Απεσταλμένα</p>
+                <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  {usedSms} <span className="text-xs font-normal text-slate-400">/ {totalSms} SMS</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Διαθέσιμα:</span>
+              <span className="font-semibold text-blue-600 dark:text-blue-400">
+                {activePeriod.remaining_sms_messages ?? 0} SMS
+              </span>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Συνολικές Κλήσεις</span>
-              <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-                {activePeriod.started_call_count ?? 0}
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Περίοδος: {formatDate(activePeriod.starts_at)} - {formatDate(activePeriod.ends_at)}
-              </p>
-            </div>
-          </div>
         </div>
       )}
 
-      {/* History Table */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-slate-100">Ιστορικό Περιόδων Χρέωσης</h2>
+      {/* Πίνακας Ιστορικού */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <DocumentTextIcon className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Ιστορικό Περιόδων Χρέωσης
+            </h2>
+          </div>
+          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            {periods.length} {periods.length === 1 ? 'εγγραφή' : 'εγγραφές'}
+          </span>
         </div>
 
         {periods.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-              <CreditCardIcon className="w-6 h-6 text-gray-400 dark:text-slate-500" />
-            </div>
-            <p className="text-sm font-medium text-gray-600 dark:text-slate-300">
-              Δεν υπάρχουν διαθέσιμες περίοδοι χρέωσης για αυτή την κλινική.
+          <div className="p-12 text-center space-y-2">
+            <CreditCardIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Δεν βρέθηκαν διαθέσιμες περίοδοι χρέωσης.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700 font-semibold">
-                <tr>
-                  <th className="py-3.5 px-5">Περίοδος</th>
-                  <th className="py-3.5 px-5">Πλάνο</th>
-                  <th className="py-3.5 px-5">Χρήση Λεπτών</th>
-                  <th className="py-3.5 px-5">SMS</th>
-                  <th className="py-3.5 px-5">Κλήσεις</th>
-                  <th className="py-3.5 px-5">Ποσό</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <th className="py-3 px-4">Περίοδος</th>
+                  <th className="py-3 px-4">Πλάνο</th>
+                  <th className="py-3 px-4">Χρήση Λεπτών</th>
+                  <th className="py-3 px-4">SMS</th>
+                  <th className="py-3 px-4 text-center">Κλήσεις</th>
+                  <th className="py-3 px-4 text-right">Συνολικό Ποσό</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-800 text-gray-700 dark:text-slate-300">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs text-slate-700 dark:text-slate-300">
                 {periods.map((period, idx) => (
-                  <tr key={period.billing_period_id || idx} className="hover:bg-gray-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3.5 px-5 font-bold text-gray-900 dark:text-slate-100">
+                  <tr key={period.billing_period_id || idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       {formatDate(period.starts_at)} — {formatDate(period.ends_at)}
                     </td>
-                    <td className="py-3.5 px-5 capitalize font-semibold text-blue-600 dark:text-blue-400">
-                      {period.plan?.name || 'Starter'}
+                    <td className="py-3.5 px-4 capitalize font-semibold text-blue-600 dark:text-blue-400">
+                      {period.plan?.name || 'Βασικό Πλάνο'}
                     </td>
-                    <td className="py-3.5 px-5 font-medium">
-                      {period.used_minutes ?? 0} / {period.total_included_minutes ?? 0} min
+                    <td className="py-3.5 px-4 font-mono">
+                      {period.used_minutes ?? 0} / {period.total_included_minutes ?? 0} λεπτά
                     </td>
-                    <td className="py-3.5 px-5 font-medium">
+                    <td className="py-3.5 px-4 font-mono">
                       {period.used_sms_messages ?? 0} / {(period.included_sms_messages ?? 0) + (period.extra_included_sms_messages ?? 0)} SMS
                     </td>
-                    <td className="py-3.5 px-5 font-medium">
+                    <td className="py-3.5 px-4 font-mono text-center">
                       {period.started_call_count ?? 0}
                     </td>
-                    <td className="py-3.5 px-5 font-bold text-gray-900 dark:text-slate-100">
+                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100 text-right">
                       {formatPrice(period.total_amount ?? period.plan?.price_minor, period.plan?.currency)}
                     </td>
                   </tr>
