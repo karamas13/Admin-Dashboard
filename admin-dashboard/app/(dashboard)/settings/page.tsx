@@ -330,7 +330,7 @@ export default function SettingsPage() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-              Εάν αποχωρήσετε τώρα, όλες οι τροποποιήσεις στις ρυθμίσεις της κλινικής θα χαθούν οριστικά.
+              Εάν αποχωρήσετε τώρα, όλες οι ΜΗ ΑΠΟΘΗΚΕΥΜΈΝΕΣ τροποποιήσεις στις ρυθμίσεις της επιχείρησής σας θα χαθούν οριστικά.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -487,7 +487,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Βήμα Slot (Διάρκεια Slot)</label>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Βήμα (Κενό ανάμεσα στα ραντεβού)</label>
               <select
                 value={slotInterval}
                 onChange={(e) => setSlotInterval(Number(e.target.value))}
@@ -532,7 +532,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Τύποι Ραντεβού & Διάρκεια</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
-                Προσθέστε τους τύπους ραντεβού που προσφέρει το ιατρείο σας.
+                Προσθέστε τους τύπους ραντεβού που προσφέρει η επιχείρησή σας.
               </p>
             </div>
             <button
@@ -633,7 +633,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Συχνές Ερωτήσεις (FAQs)</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
-                Ερωτήσεις και Απαντήσεις που χρησιμοποιεί η AI Receptionist για να απαντά στους ασθενείς.
+                Ερωτήσεις και Απαντήσεις που χρησιμοποιεί η AI Receptionist για να απαντά στους πελάτες.
               </p>
             </div>
             <button
@@ -665,7 +665,7 @@ export default function SettingsPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="π.χ. Πού βρίσκεται η κλινική;"
+                  placeholder="π.χ. Πού βρίσκεται η επιχείρηση;"
                   value={f.question}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -698,7 +698,7 @@ export default function SettingsPage() {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
             </span>
             <p className="text-xs font-medium text-slate-200 truncate">
-              Έχετε μη αποθηκευμένες αλλαγές
+              Έχετε μη αποθηκευμένες αλλαγές;
             </p>
           </div>
 

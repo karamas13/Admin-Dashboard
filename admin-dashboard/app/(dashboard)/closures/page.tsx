@@ -333,7 +333,7 @@ export default function ScheduleExceptionsPage() {
                 1. Τακτικό Εβδομαδιαίο Ωράριο
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Ορισμός ημερών και ωρών τακτικής λειτουργίας της κλινικής.
+                Ορισμός ημερών και ωρών τακτικής λειτουργίας της επιχείρησης.
               </p>
             </div>
           </div>
@@ -696,7 +696,7 @@ export default function ScheduleExceptionsPage() {
                   <select
                     value={reasonCode}
                     onChange={(e) => setReasonCode(e.target.value)}
-                    className="w-full h-[42px] px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full h-10.5 px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
                   >
                     <option value="holiday">Επίσημη Αργία</option>
                     <option value="vacation">Διακοπές</option>
@@ -718,7 +718,7 @@ export default function ScheduleExceptionsPage() {
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     required
-                    className="w-full h-[42px] px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full h-10.5 px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
 
@@ -731,7 +731,7 @@ export default function ScheduleExceptionsPage() {
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     required
-                    className="w-full h-[42px] px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="w-full h-10.5 px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
 
@@ -745,7 +745,7 @@ export default function ScheduleExceptionsPage() {
                       <select
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full h-[42px] px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full h-10.5 px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
                       >
                         {TIME_OPTIONS.map((time) => (
                           <option key={time} value={time}>{time}</option>
@@ -760,7 +760,7 @@ export default function ScheduleExceptionsPage() {
                       <select
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full h-[42px] px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
+                        className="w-full h-10.5 px-3.5 text-xs rounded-xl bg-slate-950/60 border border-slate-800 text-slate-200 focus:outline-none focus:border-indigo-500 transition-colors"
                       >
                         {TIME_OPTIONS.map((time) => (
                           <option key={time} value={time}>{time}</option>
@@ -770,7 +770,6 @@ export default function ScheduleExceptionsPage() {
                   </>
                 )}
               </div>
-
               {/* Optional Text Field Expandable */}
               {showNoteField && (
                 <div className="space-y-1.5 animate-in fade-in duration-150">

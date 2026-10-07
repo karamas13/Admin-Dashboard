@@ -400,7 +400,7 @@ export default function CreateAppointmentModal({
           {/* Row 1: Patient Name & Phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block font-semibold text-slate-300 mb-1">Ονοματεπώνυμο Ασθενή</label>
+              <label className="block font-semibold text-slate-300 mb-1">Ονοματεπώνυμο Πελάτη</label>
               <input
                 type="text"
                 required

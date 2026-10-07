@@ -155,7 +155,7 @@ export default function DashboardHome() {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Διαχείριση σημερινών ραντεβού, εκκρεμών κλήσεων και ιατρικών αιτημάτων.
+            Διαχείριση σημερινών ραντεβού, εκκρεμών κλήσεων και αιτημάτων.
           </p>
         </div>
 
@@ -352,7 +352,7 @@ export default function DashboardHome() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-105 overflow-y-auto pr-1">
                 {pendingCallbacks.map((cb: any, idx: number) => {
                   const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
                   const dateLabel = formatCallbackDate(cb.created_at);

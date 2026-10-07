@@ -358,7 +358,7 @@ export default function CallbacksPage() {
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Διαχείριση εκκρεμών κλήσεων και αιτημάτων επικοινωνίας ασθενών.
+            Διαχείριση εκκρεμών κλήσεων και αιτημάτων επικοινωνίας πελατών.
           </p>
         </div>
 

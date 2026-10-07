@@ -448,7 +448,7 @@ export default function AppointmentsPage() {
                   </div>
 
                   {/* Slot Content Area */}
-                  <div className="flex-1 p-2 min-h-[52px] flex items-center">
+                  <div className="flex-1 p-2 min-h-13 flex items-center">
                     {appt ? (
                       /* Scheduled Appointment Row Card */
                       <div 
@@ -502,7 +502,7 @@ export default function AppointmentsPage() {
       ) : (
         /* Week View Grid */
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-x-auto">
-          <div className="min-w-[700px]">
+          <div className="min-w-175">
             {/* Grid Header */}
             <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/80">
               <div className="p-3 text-center text-xs font-semibold text-slate-400 dark:text-slate-500 border-r border-slate-100 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-slate-900 z-10">
@@ -552,7 +552,7 @@ export default function AppointmentsPage() {
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-[56px] border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center transition-colors ${
+                        className={`p-1 min-h-14 border-r border-slate-100 dark:border-slate-800 last:border-0 flex items-center transition-colors ${
                           !isOpenSlot && !appt 
                             ? 'bg-slate-400/50 dark:bg-slate-950/50' 
                             : 'bg-white dark:bg-slate-900'
