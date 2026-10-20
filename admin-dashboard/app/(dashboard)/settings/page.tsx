@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -77,7 +77,7 @@ interface FAQ {
 }
 
 export default function SettingsPage() {
-  const { selectedClinic } = useClinic();
+  const { selectedClinic, isLoading: isClinicLoading } = useClinic();
   const { settings, loadingTab, fetchSettings } = useDashboard();
 
   const [activeTab, setActiveTab] = useState<'general' | 'appointment_types' | 'faqs'>('general');
@@ -88,7 +88,7 @@ export default function SettingsPage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Form state
+  // Form state
   const [clinicName, setClinicName] = useState('');
   const [timezone, setTimezone] = useState('Europe/Athens');
   const [slotInterval, setSlotInterval] = useState(15);
@@ -107,11 +107,17 @@ export default function SettingsPage() {
     faqs: FAQ[];
   } | null>(null);
 
+  // Prevent infinite loops with function ref pattern
+  const fetchSettingsRef = useRef(fetchSettings);
   useEffect(() => {
-    if (selectedClinic?.id) {
-      fetchSettings();
+    fetchSettingsRef.current = fetchSettings;
+  }, [fetchSettings]);
+
+  useEffect(() => {
+    if (!isClinicLoading && selectedClinic?.id) {
+      fetchSettingsRef.current();
     }
-  }, [selectedClinic?.id, fetchSettings]);
+  }, [selectedClinic?.id, isClinicLoading]);
 
   useEffect(() => {
     if (!settings) return;
@@ -192,7 +198,7 @@ export default function SettingsPage() {
     );
   }, [clinicName, timezone, slotInterval, minNotice, types, faqs, initialState]);
 
-  // Global Navigation Guard (Page routing / Browser back / Tab close)
+  // Navigation guard
   const {
     showPrompt: showNavModal,
     confirmNavigation,
@@ -278,7 +284,7 @@ export default function SettingsPage() {
       };
 
       await api.updateSettings(payload, selectedClinic?.id);
-      await fetchSettings(true);
+      await fetchSettingsRef.current(true);
       setSuccessMsg('Οι ρυθμίσεις αποθηκεύτηκαν με επιτυχία!');
     } catch (err: any) {
       console.error('Error saving settings:', err);
@@ -288,24 +294,25 @@ export default function SettingsPage() {
     }
   };
 
-  if (loadingTab === 'settings' && !settings) {
+  const isLoading = isClinicLoading || (loadingTab === 'settings' && !settings);
+
+  if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-5xl mx-auto dark:bg-slate-950 min-h-screen">
-        <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
-        <div className="h-12 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
-        <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+      <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-5xl mx-auto min-h-screen text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση ρυθμίσεων">
+        <div className="h-20 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl" />
+        <div className="h-12 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl" />
+        <div className="h-64 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto transition-colors duration-200 px-2 sm:px-4 md:px-6 pb-28">
-      {/* ------------------------------------------------------------- */}
-      {/* POPUP 1: PAGE LEAVE / ROUTE NAVIGATION WARNING MODAL          */}
-      {/* ------------------------------------------------------------- */}
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto transition-colors duration-200 px-2 sm:px-4 md:px-6 pb-28 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
+      
+      {/* Page Leave / Route Navigation Warning Modal */}
       {showNavModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3 text-amber-500">
                 <div className="p-2.5 bg-amber-50 dark:bg-amber-950/60 rounded-xl">
@@ -323,14 +330,15 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={cancelNavigation}
-                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                aria-label="Κλείσιμο"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-              Εάν αποχωρήσετε τώρα, όλες οι ΜΗ ΑΠΟΘΗΚΕΥΜΈΝΕΣ τροποποιήσεις στις ρυθμίσεις της επιχείρησής σας θα χαθούν οριστικά.
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-[#0D121C] p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+              Εάν αποχωρήσετε τώρα, όλες οι μη αποθηκευμένες τροποποιήσεις στις ρυθμίσεις της επιχείρησής σας θα χαθούν οριστικά.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -353,12 +361,10 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------------------- */}
-      {/* POPUP 2: SETTINGS TAB SWITCH WARNING MODAL                     */}
-      {/* ------------------------------------------------------------- */}
+      {/* Tab Switch Warning Modal */}
       {showTabModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-500">
               <ExclamationTriangleIcon className="w-6 h-6 shrink-0" />
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
@@ -392,11 +398,12 @@ export default function SettingsPage() {
       )}
 
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-[#101622] p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-base md:text-xl font-bold text-slate-800 dark:text-slate-100">Ρυθμίσεις Κλινικής</h1>      
+          <h1 className="text-base md:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Ρυθμίσεις Κλινικής</h1>      
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Διαχειριστείτε τις γενικές πληροφορίες, τους τύπους ραντεβού, τις οδηγίες και τις απαντήσεις της AI Receptionist.
+            Διαχειριστείτε τις γενικές πληροφορίες, τους τύπους ραντεβού, τις οδηγίες και τις απαντήσεις της AI Receptionist για την επιχείρηση{' '}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
           </p>
         </div>
 
@@ -404,9 +411,9 @@ export default function SettingsPage() {
           type="button"
           disabled={isSaving}
           onClick={handleSave}
-          className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-semibold text-xs transition-all duration-200 flex items-center justify-center gap-2 shrink-0 cursor-pointer ${
+          className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-50 ${
             isDirty
-              ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-500/30'
+              ? 'bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 shadow-md ring-2 ring-emerald-500/30'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
           }`}
         >
@@ -423,25 +430,25 @@ export default function SettingsPage() {
 
       {/* Status Alerts */}
       {successMsg && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2">
+        <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2" role="status">
           <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2">
+        <div className="p-4 bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2" role="alert">
           <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-semibold overflow-x-auto whitespace-nowrap max-w-full">
+      {/* Navigation Tabs */}
+      <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-semibold overflow-x-auto whitespace-nowrap max-w-full border border-slate-200/50 dark:border-slate-700/50">
         <button
           onClick={() => handleTabChange('general')}
-          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
             activeTab === 'general'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 shadow-xs font-bold'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
@@ -450,9 +457,9 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => handleTabChange('appointment_types')}
-          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
             activeTab === 'appointment_types'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 shadow-xs font-bold'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
@@ -461,9 +468,9 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => handleTabChange('faqs')}
-          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 ${
+          className={`px-3.5 py-2 rounded-lg transition-colors flex items-center gap-2 shrink-0 cursor-pointer ${
             activeTab === 'faqs'
-              ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+              ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 shadow-xs font-bold'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
           }`}
         >
@@ -472,9 +479,9 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* TAB 1 */}
+      {/* TAB 1: General Settings */}
       {activeTab === 'general' && (
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 text-xs">
+        <div className="bg-white dark:bg-[#101622] p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl space-y-6 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
             <div className="md:col-span-2 lg:col-span-1">
               <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Όνομα Κλινικής</label>
@@ -482,7 +489,7 @@ export default function SettingsPage() {
                 type="text"
                 value={clinicName}
                 onChange={(e) => setClinicName(e.target.value)}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-[#0D121C] focus:bg-white dark:focus:bg-[#101622] focus:border-emerald-500 outline-none transition-colors font-medium"
               />
             </div>
 
@@ -491,7 +498,7 @@ export default function SettingsPage() {
               <select
                 value={slotInterval}
                 onChange={(e) => setSlotInterval(Number(e.target.value))}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium cursor-pointer"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-[#0D121C] focus:bg-white dark:focus:bg-[#101622] focus:border-emerald-500 outline-none transition-colors font-medium cursor-pointer"
               >
                 <option value={15}>15 λεπτά</option>
                 <option value={30}>30 λεπτά</option>
@@ -507,7 +514,7 @@ export default function SettingsPage() {
               <select
                 value={minNotice}
                 onChange={(e) => setMinNotice(Number(e.target.value))}
-                className="w-full border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 outline-none transition-colors font-medium cursor-pointer"
+                className="w-full border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-[#0D121C] focus:bg-white dark:focus:bg-[#101622] focus:border-emerald-500 outline-none transition-colors font-medium cursor-pointer"
               >
                 <option value={15}>15 λεπτά</option>
                 <option value={30}>30 λεπτά</option>
@@ -525,10 +532,10 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAB 2 */}
+      {/* TAB 2: Appointment Types */}
       {activeTab === 'appointment_types' && (
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
+        <div className="bg-white dark:bg-[#101622] p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl space-y-4 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3 gap-2">
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Τύποι Ραντεβού & Διάρκεια</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
@@ -538,7 +545,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={addType}
-              className="px-3 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto shrink-0 cursor-pointer"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto shrink-0 cursor-pointer border border-slate-200 dark:border-slate-700"
             >
               <PlusIcon className="w-4 h-4 shrink-0" /> 
               <span>Προσθήκη Τύπου</span>
@@ -550,8 +557,8 @@ export default function SettingsPage() {
               const isCustomDuration = !DURATION_OPTIONS.some((opt) => opt.value === t.duration);
 
               return (
-                <div key={t.id} className="p-3.5 md:p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-3">
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+                <div key={t.id} className="p-3.5 md:p-4 bg-slate-50/60 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800/80 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800/80">
                     <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">
                       Τύπος #{idx + 1}
                     </span>
@@ -577,7 +584,7 @@ export default function SettingsPage() {
                           const val = e.target.value;
                           setTypes((prev) => prev.map((item) => (item.id === t.id ? { ...item, title: val } : item)));
                         }}
-                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#101622] text-slate-800 dark:text-slate-100 font-medium outline-none focus:border-emerald-500 transition-colors"
                       />
                     </div>
                     <div>
@@ -588,7 +595,7 @@ export default function SettingsPage() {
                           const val = Number(e.target.value);
                           setTypes((prev) => prev.map((item) => (item.id === t.id ? { ...item, duration: val } : item)));
                         }}
-                        className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer"
+                        className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#101622] text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer focus:border-emerald-500 transition-colors"
                       >
                         {isCustomDuration && (
                           <option value={t.duration}>
@@ -616,7 +623,7 @@ export default function SettingsPage() {
                         const val = e.target.value;
                         setTypes((prev) => prev.map((item) => (item.id === t.id ? { ...item, prep: val } : item)));
                       }}
-                      className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-medium outline-none"
+                      className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#101622] text-slate-800 dark:text-slate-100 font-medium outline-none focus:border-emerald-500 transition-colors"
                     />
                   </div>
                 </div>
@@ -626,10 +633,10 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAB 3 */}
+      {/* TAB 3: FAQs */}
       {activeTab === 'faqs' && (
-        <div className="bg-white dark:bg-slate-900 p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 text-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
+        <div className="bg-white dark:bg-[#101622] p-4 md:p-6 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl space-y-4 text-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3 gap-2">
             <div>
               <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Συχνές Ερωτήσεις (FAQs)</h2>
               <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5">
@@ -639,7 +646,7 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={addFaq}
-              className="px-3 py-2 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto shrink-0 cursor-pointer"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold rounded-xl flex items-center justify-center gap-1 transition-colors self-start sm:self-auto shrink-0 cursor-pointer border border-slate-200 dark:border-slate-700"
             >
               <PlusIcon className="w-4 h-4 shrink-0" /> 
               <span>Προσθήκη Ερώτησης</span>
@@ -648,8 +655,8 @@ export default function SettingsPage() {
 
           <div className="space-y-3">
             {faqs.map((f, idx) => (
-              <div key={f.id} className="p-3.5 md:p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/60 rounded-xl space-y-2">
-                <div className="flex justify-between items-center pb-1 border-b border-slate-200/60 dark:border-slate-700/50">
+              <div key={f.id} className="p-3.5 md:p-4 bg-slate-50/60 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800/80 rounded-xl space-y-2">
+                <div className="flex justify-between items-center pb-1 border-b border-slate-200/60 dark:border-slate-800/80">
                   <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">
                     Ερώτηση #{idx + 1}
                   </span>
@@ -671,7 +678,7 @@ export default function SettingsPage() {
                     const val = e.target.value;
                     setFaqs((prev) => prev.map((item) => (item.id === f.id ? { ...item, question: val } : item)));
                   }}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 font-medium text-slate-800 dark:text-slate-100 outline-none"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#101622] font-medium text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-500 transition-colors"
                 />
                 <textarea
                   rows={2}
@@ -681,7 +688,7 @@ export default function SettingsPage() {
                     const val = e.target.value;
                     setFaqs((prev) => prev.map((item) => (item.id === f.id ? { ...item, answer: val } : item)));
                   }}
-                  className="w-full p-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                  className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#101622] text-slate-800 dark:text-slate-100 outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             ))}
@@ -691,14 +698,14 @@ export default function SettingsPage() {
 
       {/* Floating Bottom Save Banner */}
       {isDirty && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl bg-slate-900/95 dark:bg-slate-800/95 text-white backdrop-blur-md p-3.5 md:p-4 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-xl bg-slate-900/95 text-white p-3.5 md:p-4 rounded-2xl shadow-2xl border border-slate-800 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
             </span>
-            <p className="text-xs font-medium text-slate-200 truncate">
-              Έχετε μη αποθηκευμένες αλλαγές;
+            <p className="text-xs font-bold text-slate-200 truncate">
+              Έχετε μη αποθηκευμένες αλλαγές στο προφίλ
             </p>
           </div>
 
@@ -706,7 +713,7 @@ export default function SettingsPage() {
             type="button"
             disabled={isSaving}
             onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl shadow-md transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
           >
             {isSaving ? (
               <>

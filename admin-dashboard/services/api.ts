@@ -1,13 +1,9 @@
-'use client'
+'use client';
 
 const rawProjectRef = process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF || '';
 const SUPABASE_PROJECT_REF = rawProjectRef.replace(/['";\s]/g, '');
-
-const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').replace(/['";\s]/g, ''); 
-const DEFAULT_CLINIC_ID = process.env.NEXT_PUBLIC_SUPABASE_CLINIC_ID; 
-
-// Base URL για το Supabase
-const BASE_URL = SUPABASE_PROJECT_REF ? `https://${SUPABASE_PROJECT_REF}.supabase.co` : '';
+const SUPABASE_ANON_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').replace(/['";\s]/g, '');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (SUPABASE_PROJECT_REF ? `https://${SUPABASE_PROJECT_REF}.supabase.co` : '');
 
 export const getStoredToken = (): string | null => {
   if (typeof window === 'undefined') return null;
@@ -23,7 +19,6 @@ export const setStoredSession = async (token: string, clinicId?: string, user?: 
   if (typeof window !== 'undefined') {
     localStorage.setItem('auth_token', token);
     if (user) localStorage.setItem('user_data', JSON.stringify(user));
-
     document.cookie = `auth_token=${token}; path=/; max-age=86400; SameSite=Lax`;
 
     if (clinicId) {
@@ -50,32 +45,24 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   clinicIdOverride?: string
 ): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-  
-  // 1. Υπολογισμός του clinicId:
-  // Αν το endpoint είναι το /api/dashboard/session και ΔΕΝ έχουμε ρητό override,
-  // ΔΕΝ στέλνουμε X-Clinic-Id header για να μην φάμε 403 Forbidden!
+  const token = getStoredToken();
   let clinicId: string | null = null;
-  
+
   if (clinicIdOverride !== undefined) {
     clinicId = clinicIdOverride;
   } else if (!endpoint.includes('/api/dashboard/session')) {
-    clinicId = typeof window !== 'undefined' 
-      ? (localStorage.getItem('selected_clinic_id') || localStorage.getItem('clinic_id')) 
-      : null;
+    clinicId = getStoredClinicId();
   }
 
-  // 2. Έλεγχος Δρομολόγησης URL
   let fullUrl = endpoint;
   if (!endpoint.startsWith('http')) {
     if (endpoint.startsWith('/auth/v1')) {
       fullUrl = `${BASE_URL}${endpoint}`;
     } else {
-      fullUrl = endpoint; 
+      fullUrl = endpoint;
     }
   }
 
-  // 3. Κατασκευή Headers
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(endpoint.startsWith('/auth/v1') && SUPABASE_ANON_KEY ? { 'apikey': SUPABASE_ANON_KEY } : {}),
@@ -84,17 +71,14 @@ export async function apiFetch<T>(
     ...options.headers,
   };
 
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(fullUrl, { ...options, headers });
 
   if (response.status === 401) {
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       clearStoredSession();
       window.location.href = '/login';
     }
-    throw new Error('Session expired');
+    throw new Error('Η συνεδρία έληξε. Παρακαλώ συνδεθείτε ξανά.');
   }
 
   if (response.status === 403) {
@@ -105,19 +89,18 @@ export async function apiFetch<T>(
   if (!contentType || !contentType.includes('application/json')) {
     const text = await response.text();
     console.error(`Non-JSON response from ${fullUrl}:`, text);
-    throw new Error(`Invalid response from server (${response.status}). Expected JSON.`);
+    throw new Error(`Μη έγκυρη απάντηση από τον διακομιστή (${response.status}).`);
   }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `API Error: ${response.status}`);
+    throw new Error(errorData.message || errorData.error || `Σφάλμα API: ${response.status}`);
   }
 
   return response.json();
 }
 
 export const api = {
-  
   // 1. AUTHENTICATION
   login: async (email: string, password: string) => {
     const response = await apiFetch<any>('/auth/v1/token?grant_type=password', {
@@ -130,266 +113,203 @@ export const api = {
 
     if (token) {
       await setStoredSession(token, undefined, user);
-
       try {
-        const sessionRes = await apiFetch<{ success: boolean; selected_clinic_id: string; clinics: any[] }>(
+        const sessionRes = await apiFetch<{ success: boolean; selected_clinic_id: string }>(
           '/api/dashboard/session',
           { method: 'GET' }
         );
-
         if (sessionRes?.selected_clinic_id) {
           await setStoredSession(token, sessionRes.selected_clinic_id, user);
         }
       } catch (err) {
-        console.warn('⚠️ Δεν ήταν δυνατή η αυτόματη ανάκτηση του clinic_id:', err);
+        console.warn('Αδυναμία αυτόματης ανάκτησης clinic_id:', err);
       }
     }
-
     return response;
   },
 
   logout: async () => {
     clearStoredSession();
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
+    if (typeof window !== 'undefined') window.location.href = '/login';
   },
 
-  // 2. SESSION & CLINIC CONTEXT
+  // 2. SESSION & CLINICS
   getSession: async (clinicId?: string) => {
     return apiFetch<{
       success: boolean;
       user: { id: string; email: string };
-      clinics: Array<{
-        id: string;
-        name: string;
-        status: string;
-        role: string;
-        is_default: boolean;
-      }>;
+      clinics: Array<{ id: string; name: string; status: string; role: string; is_default: boolean }>;
       selected_clinic_id: string;
-    }>(
-      '/api/dashboard/session',
-      { method: 'GET' },
-      clinicId
-    );
+    }>('/api/dashboard/session', { method: 'GET' }, clinicId);
   },
 
   // 3. APPOINTMENTS
-  getAppointments: async (paramsObj?: { startAt?: string; endAt?: string; clinicId?: string } | string, endAtParam?: string, clinicIdParam?: string) => {
-    let startAt: string | undefined;
-    let endAt: string | undefined;
-    let clinicId: string | undefined;
+  getAppointments: async (params?: { startAt?: string; endAt?: string; limit?: number; offset?: number; clinicId?: string }) => {
+    const activeClinicId = params?.clinicId || getStoredClinicId();
+    const query = new URLSearchParams();
+    if (params?.startAt) query.append('start_at', params.startAt);
+    if (params?.endAt) query.append('end_at', params.endAt);
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.offset) query.append('offset', String(params.offset));
 
-    if (typeof paramsObj === 'object' && paramsObj !== null) {
-      startAt = paramsObj.startAt;
-      endAt = paramsObj.endAt;
-      clinicId = paramsObj.clinicId;
-    } else {
-      startAt = paramsObj;
-      endAt = endAtParam;
-      clinicId = clinicIdParam;
-    }
-
-    const activeClinicId = clinicId || getStoredClinicId();
-    const queryParams = new URLSearchParams();
-
-    if (startAt && startAt.includes('-')) queryParams.append('start_at', startAt);
-    if (endAt && endAt.includes('-')) queryParams.append('end_at', endAt);
-    if (activeClinicId) queryParams.append('clinic_id', activeClinicId);
-
-    const queryString = queryParams.toString();
-    const endpoint = `/api/dashboard/appointments${queryString ? `?${queryString}` : ''}`;
-
+    const endpoint = `/api/dashboard/appointments${query.toString() ? `?${query.toString()}` : ''}`;
     return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
   },
 
-  rescheduleAppointment: async (appointmentId: string, payload: any, clinicId?: string) => {
+  getAvailableSlots: async (startDate: string, days = 7, durationMinutes = 30, appointmentId?: string, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    const query = new URLSearchParams({
+      start_date: startDate,
+      days: String(days),
+      duration_minutes: String(durationMinutes),
+    });
+    if (appointmentId) query.append('appointment_id', appointmentId);
+
+    return apiFetch<any>(`/api/dashboard/appointments/available-slots?${query.toString()}`, { method: 'GET' }, activeClinicId || undefined);
+  },
+
+  checkAvailability: async (startAt: string, durationMinutes = 30, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    return apiFetch<any>('/api/dashboard/appointments/availability', {
+      method: 'POST',
+      body: JSON.stringify({ start_at: startAt, duration_minutes: durationMinutes }),
+    }, activeClinicId || undefined);
+  },
+
+  createAppointment: async (payload: {
+    caller_name: string;
+    phone: string;
+    callback_phone?: string;
+    appointment_type_code: string;
+    urgency_code?: string;
+    start_at: string;
+    duration_minutes?: number;
+  }, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    return apiFetch<any>('/api/dashboard/appointments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, activeClinicId || undefined);
+  },
+
+  getAppointmentById: async (appointmentId: string, clinicId?: string) => {
+    return apiFetch<any>(`/api/dashboard/appointments/${appointmentId}`, { method: 'GET' }, clinicId);
+  },
+
+  rescheduleAppointment: async (appointmentId: string, payload: { start_at: string; duration_minutes?: number }, clinicId?: string) => {
     return apiFetch<any>(`/api/dashboard/appointments/${appointmentId}/reschedule`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }, clinicId);
   },
 
- // Create Appointment
-createAppointment: async (payload: any, clinicId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-
-  const formattedPayload = {
-    clinic_id: activeClinicId,
-    caller_name: payload.caller_name || payload.patient_name || 'Ανώνυμος Ασθενής',
-    phone: payload.phone || payload.phone_normalized || '',
-    appointment_type_code: payload.appointment_type_code || 'examination',
-    start_at: payload.start_at || payload.starts_at,
-    duration_minutes: payload.duration_minutes || 30,
-    status: payload.status || 'booked',
-    notes: payload.notes || '',
-  };
-
-  return apiFetch<any>(
-    '/api/dashboard/appointments',
-    {
-      method: 'POST',
-      body: JSON.stringify(formattedPayload),
-    },
-    activeClinicId || undefined
-  );
-},
-
   cancelAppointment: async (appointmentId: string, clinicId?: string) => {
-    return apiFetch<any>(`/api/dashboard/appointments/${appointmentId}/cancel`, {
+    return apiFetch<any>(`/api/dashboard/appointments/${appointmentId}/cancel`, { method: 'POST' }, clinicId);
+  },
+
+  // 4. SCHEDULE EXCEPTIONS (CLOSURES & EXTRA HOURS)
+  getScheduleExceptions: async (params?: { startsAt?: string; endsAt?: string; limit?: number; offset?: number; clinicId?: string }) => {
+    const activeClinicId = params?.clinicId || getStoredClinicId();
+    const query = new URLSearchParams();
+    if (params?.startsAt) query.append('starts_at', params.startsAt);
+    if (params?.endsAt) query.append('ends_at', params.endsAt);
+    if (params?.limit) query.append('limit', String(params.limit));
+    if (params?.offset) query.append('offset', String(params.offset));
+
+    const endpoint = `/api/dashboard/schedule-exceptions${query.toString() ? `?${query.toString()}` : ''}`;
+    return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
+  },
+
+  createScheduleException: async (payload: {
+    starts_at: string;
+    ends_at: string;
+    availability_effect: 'closed' | 'open';
+    reason_code: string;
+    active?: boolean;
+  }, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    return apiFetch<any>('/api/dashboard/schedule-exceptions', {
       method: 'POST',
+      body: JSON.stringify({ active: true, ...payload }),
+    }, activeClinicId || undefined);
+  },
+
+  deleteScheduleException: async (exceptionId: string, clinicId?: string) => {
+    return apiFetch<any>(`/api/dashboard/schedule-exceptions/${exceptionId}`, { method: 'DELETE' }, clinicId);
+  },
+
+ // CALLBACKS & NOTES
+  getCallbacks: async (status?: string, limit = 100, offset = 0, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (status !== undefined) query.append('status', status);
+
+    return apiFetch<any>(`/api/dashboard/callbacks?${query.toString()}`, { method: 'GET' }, activeClinicId || undefined);
+  },
+
+  updateCallback: async (callbackId: string, payload: { status?: string; notes?: string; work_summary?: string }, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    return apiFetch<any>(`/api/dashboard/callbacks/${callbackId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }, activeClinicId || undefined);
+  },
+
+  // Note management mapped to the proper core callback patch/get endpoints
+  getCallbackNotes: async (callbackId: string, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    const res = await apiFetch<any>(`/api/dashboard/callbacks/${callbackId}`, { method: 'GET' }, activeClinicId || undefined);
+    const cb = res?.callback || res;
+    
+    // Return structured notes array if present
+    if (cb?.notes) {
+      return [{ id: '1', content: cb.notes, created_at: cb.updated_at || cb.created_at, author_name: 'Σημείωση Κλινικής' }];
+    }
+    return [];
+  },
+
+  addCallbackNote: async (callbackId: string, payload: { content: string }, clinicId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    // Persist the note cleanly onto the core callback record via PATCH
+    return apiFetch<any>(`/api/dashboard/callbacks/${callbackId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ 
+        notes: payload.content,
+        work_summary: payload.content 
+      }),
+    }, activeClinicId || undefined);
+  },
+
+  // 6. SETTINGS & NOTIFICATION PREFERENCES
+  getSettings: async (clinicId?: string) => {
+    return apiFetch<any>('/api/dashboard/settings', { method: 'GET' }, clinicId);
+  },
+
+  updateSettings: async (payload: any, clinicId?: string) => {
+    return apiFetch<any>('/api/dashboard/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
     }, clinicId);
   },
 
- // Check appointment slot availability and get alternatives
- checkAvailability: async (payload: { starts_at: string; duration_minutes?: number }, clinicId?: string) => {
-  try {
-    const params = new URLSearchParams({
-      starts_at: payload.starts_at,
-      ...(payload.duration_minutes ? { duration_minutes: String(payload.duration_minutes) } : {}),
-    });
-    
-    return await apiFetch<any>(
-      `/api/dashboard/appointments/check-availability?${params.toString()}`,
-      { method: 'GET' },
-      clinicId
-    );
-  } catch (err: any) {
-    // Αν το endpoint δεν υπάρχει ακόμα (404/405), επιστρέφουμε fallback ότι είναι διαθέσιμο
-    // για να μην εμποδίζεται η δημιουργία ραντεβού
-    if (err?.message?.includes('405') || err?.message?.includes('404')) {
-      console.warn('Check availability endpoint not available, proceeding to create appointment.');
-      return { available: true };
-    }
-    throw err;
-  }
-},
-
-
-  // 4. CLOSURES
-
-
-  getScheduleExceptions: async (
-    startsAtOrParams?: string | { startsAt?: string; endsAt?: string; clinicId?: string },
-    endsAtParam?: string,
-    clinicIdParam?: string
-  ) => {
-    let startsAt: string | undefined;
-    let endsAt: string | undefined;
-    let clinicId: string | undefined;
-
-    if (typeof startsAtOrParams === 'object' && startsAtOrParams !== null) {
-      startsAt = startsAtOrParams.startsAt;
-      endsAt = startsAtOrParams.endsAt;
-      clinicId = startsAtOrParams.clinicId;
-    } else {
-      startsAt = startsAtOrParams;
-      endsAt = endsAtParam;
-      clinicId = clinicIdParam;
-    }
-
-    const activeClinicId = clinicId || getStoredClinicId();
-    const params = new URLSearchParams();
-
-    if (startsAt) params.append('starts_at', startsAt);
-    if (endsAt) params.append('ends_at', endsAt);
-
-    const queryString = params.toString();
-    const endpoint = `/api/dashboard/schedule-exceptions${queryString ? `?${queryString}` : ''}`;
-
-    const data = await apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
-    return Array.isArray(data) ? data : (data?.schedule_exceptions || data?.closures || []);
+  getNotificationPreferences: async (clinicId?: string) => {
+    return apiFetch<any>('/api/dashboard/notification-preferences', { method: 'GET' }, clinicId);
   },
 
-createScheduleException: async (payload: any, clinicId?: string) => {
-  const activeClinicId = clinicId || payload?.clinic_id || getStoredClinicId();
-
-  const formattedPayload = {
-    clinic_id: activeClinicId,
-    starts_at: payload.starts_at || payload.startsAt,
-    ends_at: payload.ends_at || payload.endsAt,
-    availability_effect: payload.availability_effect || 'closed', // 'closed' ή 'open'
-    reason_code: payload.reason_code || payload.reasonCode || 'other',
-    is_all_day: payload.is_all_day ?? false,
-    note: payload.note || '',
-    active: payload.active !== undefined ? payload.active : true,
-  };
-
-  const response = await apiFetch<any>(
-    '/api/dashboard/schedule-exceptions',
-    {
-      method: 'POST',
-      body: JSON.stringify(formattedPayload),
-    },
-    activeClinicId || undefined
-  );
-
-  return response?.schedule_exception || response;
-},
-
-deleteScheduleException: async (schedule_exception_id: string, clinicId?: string) => {
-  return apiFetch<any>(
-    `/api/dashboard/schedule-exceptions/${schedule_exception_id}`,
-    { method: 'DELETE' },
-    clinicId
-  );
-},
-
-  // 5. CALLBACKS
-  getCallbacks: async (status?: string, clinicId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-  const endpoint = status ? `/api/dashboard/callbacks?status=${status}` : '/api/dashboard/callbacks';
-  return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
-},
-
-updateCallback: async (callbackId: string, payload: { status?: string; notes?: string; is_urgent?: boolean }, clinicId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-  return apiFetch<any>(
-    `/api/dashboard/callbacks/${callbackId}`,
-    {
+  updateNotificationPreferences: async (payload: { urgent_alerts?: boolean; regular_callbacks?: boolean; new_bookings?: boolean }, clinicId?: string) => {
+    return apiFetch<any>('/api/dashboard/notification-preferences', {
       method: 'PATCH',
       body: JSON.stringify(payload),
-    },
-    activeClinicId || undefined
-  );
-},
+    }, clinicId);
+  },
 
-// 5. Settings
+  // 7. BILLING
+  getBilling: async (clinicId?: string, periodId?: string) => {
+    const activeClinicId = clinicId || getStoredClinicId();
+    const endpoint = periodId ? `/api/dashboard/billing-periods/${periodId}` : '/api/dashboard/billing-periods?limit=12&offset=0';
+    return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
+  },
 
-getSettings: async (clinicId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-  return apiFetch<any>('/api/dashboard/settings', { method: 'GET' }, activeClinicId || undefined);
-},
 
-updateSettings: async (payload: any, clinicId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-  return apiFetch<any>(
-    '/api/dashboard/settings',
-    {
-      method: 'PATCH', 
-      body: JSON.stringify(payload),
-    },
-    activeClinicId || undefined
-  );
-},
-
-// 6. BILLING & USAGE
-
-getBilling: async (clinicId?: string, periodId?: string) => {
-  const activeClinicId = clinicId || getStoredClinicId();
-  const queryParams = new URLSearchParams();
-
-  if (activeClinicId) queryParams.append('clinic_id', activeClinicId);
-
-  const queryString = queryParams.toString();
   
-  // If a specific period ID is requested, hit the detail route; otherwise, fetch the list
-  const endpoint = periodId
-    ? `/api/dashboard/billing-periods/${periodId}${queryString ? `?${queryString}` : ''}`
-    : `/api/dashboard/billing-periods${queryString ? `?${queryString}` : ''}`;
-
-  return apiFetch<any>(endpoint, { method: 'GET' }, activeClinicId || undefined);
-},
 };
-

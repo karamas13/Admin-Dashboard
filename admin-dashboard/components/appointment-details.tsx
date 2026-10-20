@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Appointment } from '@/types';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
@@ -12,7 +12,9 @@ import {
   TagIcon,
   ExclamationTriangleIcon,
   CheckIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  ClockIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 
 interface EditAppointmentModalProps {
@@ -45,7 +47,6 @@ const GREEK_LABEL_MAP: Record<string, string> = {
   unknown: 'Γενικό Ραντεβού',
 };
 
-// Βοηθητική συνάρτηση για να μετατρέπουμε το ISO string σε format που καταλαβαίνει το <input type="datetime-local">
 const getLocalDatetime = (dateStr?: string) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -69,7 +70,6 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
   const [status, setStatus] = useState<string>(initialStatus);
   const [startAt, setStartAt] = useState(getLocalDatetime(appointment.start_at));
   
-  // Δυναμική λίστα τύπων ραντεβού από τα Settings
   const [appointmentTypesList, setAppointmentTypesList] = useState<
     Array<{ code: string; name: string; duration_minutes: number }>
   >(DEFAULT_APPOINTMENT_TYPES);
@@ -77,7 +77,13 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Φόρτωση ρυθμίσεων κλινικής & συγχρονισμός τύπων ραντεβού
+  // Selected appointment duration based on type code
+  const currentDuration = useMemo(() => {
+    const selectedType = appointmentTypesList.find((t) => t.code === typeCode);
+    return selectedType ? selectedType.duration_minutes : appointment.duration_minutes || 30;
+  }, [typeCode, appointmentTypesList, appointment.duration_minutes]);
+
+  // Load Clinic Settings
   useEffect(() => {
     async function fetchClinicSettings() {
       if (!selectedClinic?.id) return;
@@ -122,8 +128,6 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
 
           if (parsedTypes.length > 0) {
             setAppointmentTypesList(parsedTypes);
-
-            // Αν ο τύπος του υπάρχοντος ραντεβού δεν υπάρχει πλέον στη λίστα, θέτουμε τον πρώτο διαθέσιμο
             const currentExists = parsedTypes.some((t) => t.code === typeCode);
             if (!currentExists && parsedTypes.length > 0) {
               setTypeCode(parsedTypes[0].code);
@@ -131,12 +135,12 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
           }
         }
       } catch (err) {
-        console.error('Failed to load appointment types from settings in edit modal:', err);
+        console.error('Failed to load clinic settings:', err);
       }
     }
 
     fetchClinicSettings();
-  }, [selectedClinic?.id]);
+  }, [selectedClinic?.id, typeCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,77 +150,64 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
       setIsSubmitting(true);
       setError('');
 
-      // Σενάριο 1: Ο χρήστης θέλει απλώς να ακυρώσει το ραντεβού
+      // 1. Handle Cancellation
       if (status === 'cancelled' && initialStatus !== 'cancelled') {
-        await api.cancelAppointment(appointmentId);
+        await api.cancelAppointment(appointmentId, selectedClinic?.id);
         onStateChange();
         onClose();
         return;
       }
 
-      // Ελέγχουμε αν άλλαξε κάτι στα δεδομένα
       const isDateChanged = startAt !== getLocalDatetime(appointment.start_at);
-      const isDetailsChanged = name !== initialName || phone !== initialPhone || typeCode !== initialTypeCode;
+      const newStartIso = new Date(startAt).toISOString();
 
-      if (isDateChanged || isDetailsChanged) {
-        const newStartIso = new Date(startAt).toISOString();
-
-        // 1. Αν άλλαξε η ώρα, ελέγχουμε πρώτα τη διαθεσιμότητα
-        if (isDateChanged) {
-          const availability = await api.checkAvailability(
-            { starts_at: newStartIso },
-            selectedClinic?.id
-          );
-          if (availability && availability.available === false) {
-            setError('Η επιλεγμένη ημερομηνία/ώρα δεν είναι διαθέσιμη.');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-
-        // 2. Ακυρώνουμε το παλιό ραντεβού (αφού δεν υπάρχει update endpoint)
-        await api.cancelAppointment(appointmentId);
-
-        // 3. Δημιουργούμε το νέο (αναθεωρημένο) ραντεβού
-        await api.createAppointment({
-          clinic_id: selectedClinic?.id,
-          caller_name: name,
-          phone: phone,
-          appointment_type_code: typeCode,
-          start_at: newStartIso,
-          status: 'booked',
-          notes: (appointment as any).notes || '', 
-        }, selectedClinic?.id);
+      // 2. Handle Reschedule using direct endpoint
+      if (isDateChanged) {
+        await api.rescheduleAppointment(
+          appointmentId, 
+          { start_at: newStartIso, duration_minutes: currentDuration },
+          selectedClinic?.id
+        );
       }
 
       onStateChange();
       onClose();
     } catch (err: any) {
-      console.error('Σφάλμα κατά την ενημέρωση του ραντεβού:', err);
-      setError(err?.message || 'Η αποθήκευση απέτυχε. Παρακαλώ δοκιμάστε ξανά.');
+      console.error('Error updating appointment:', err);
+      setError(err?.message || 'Η ενημέρωση απέτυχε. Παρακαλώ ελέγξτε τη διαθεσιμότητα.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity">
-      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-blue-100 dark:border-slate-800 p-6 flex flex-col justify-between transition-colors animate-in fade-in zoom-in-95 duration-200">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md transition-opacity animate-in fade-in duration-200"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 transition-all transform animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-blue-50 dark:border-slate-800 pb-4 mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-50 dark:bg-blue-600/15 text-blue-600 dark:text-blue-400 rounded-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl">
               <PencilSquareIcon className="w-5 h-5" />
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              Διαχείριση Ραντεβού
-            </h3>
+            <div>
+              <h3 id="modal-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
+                Διαχείριση Ραντεβού
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Ενημέρωση στοιχείων ή μεταβολή ώρας
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-blue-50 dark:hover:bg-slate-800"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
             disabled={isSubmitting}
             aria-label="Κλείσιμο"
           >
@@ -224,68 +215,69 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
           </button>
         </div>
 
+        {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2 font-medium">
-            <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
-            {error}
+          <div 
+            role="alert"
+            className="mb-4 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2 font-medium"
+          >
+            <ExclamationTriangleIcon className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Ονοματεπώνυμο */}
+            {/* Caller Name (Read-Only) */}
             <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-1">
-                <UserIcon className="w-3.5 h-3.5" /> Ασθενής
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                Ασθενής
               </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium text-slate-800 dark:text-slate-200">
+                <UserIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="truncate">{name || 'Ανώνυμος'}</span>
+              </div>
             </div>
 
-            {/* Τηλέφωνο */}
+            {/* Phone (Read-Only) */}
             <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-1">
-                <PhoneIcon className="w-3.5 h-3.5" /> Τηλέφωνο
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                Τηλέφωνο
               </label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-mono font-medium text-slate-800 dark:text-slate-200">
+                <PhoneIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="truncate">{phone || '-'}</span>
+              </div>
             </div>
           </div>
 
-          {/* Ημερομηνία & Ώρα */}
+          {/* Date & Time Input */}
           <div>
-            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-1">
-              <CalendarIcon className="w-3.5 h-3.5" /> Ημερομηνία & Ώρα
+            <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+              Ημερομηνία & Ώρα
             </label>
-            <input
-              type="datetime-local"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 scheme-light dark:scheme-dark"
-            />
+            <div className="relative">
+              <input
+                type="datetime-local"
+                value={startAt}
+                onChange={(e) => setStartAt(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors scheme-light dark:scheme-dark"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Τύπος Ραντεβού (Δυναμικός από τα Settings) */}
+            {/* Appointment Type */}
             <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-1">
-                <TagIcon className="w-3.5 h-3.5" /> Τύπος Ραντεβού
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                Τύπος Ραντεβού
               </label>
               <select
                 value={typeCode}
                 onChange={(e) => setTypeCode(e.target.value)}
-                className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors"
               >
                 {appointmentTypesList.map((type) => (
                   <option key={type.code} value={type.code} className="dark:bg-slate-900">
@@ -295,39 +287,54 @@ export default function EditAppointmentModal({ appointment, onClose, onStateChan
               </select>
             </div>
 
-            {/* Κατάσταση (Status) */}
+            {/* Status */}
             <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5 mb-1">
+              <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 Κατάσταση
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full px-3 py-2 bg-blue-50/30 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors"
               >
-                <option value="booked" className="dark:bg-slate-900">Booked / Ενεργό</option>
-                <option value="cancelled" className="dark:bg-slate-900 text-rose-600">Ακυρωμένο</option>
+                <option value="booked" className="dark:bg-slate-900">Ενεργό / Booked</option>
+                <option value="cancelled" className="dark:bg-slate-900 text-rose-600 dark:text-rose-400 font-semibold">
+                  Ακύρωση Ραντεβού
+                </option>
               </select>
             </div>
           </div>
 
-          {/* Actions Footer */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-blue-50 dark:border-slate-800 mt-6">
+          {/* Footer Actions */}
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-50 dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs transition-colors"
+              className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl text-xs font-semibold transition-colors disabled:opacity-50"
             >
-              Κλείσιμο
+              Ακύρωση
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 shadow-xs"
+              className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer ${
+                status === 'cancelled' 
+                  ? 'bg-rose-600 hover:bg-rose-700' 
+                  : 'bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900'
+              }`}
             >
-              <CheckIcon className="w-4 h-4" />
-              {isSubmitting ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}
+              {isSubmitting ? (
+                <>
+                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                  <span>Αποθήκευση...</span>
+                </>
+              ) : (
+                <>
+                  <CheckIcon className="w-4 h-4" />
+                  <span>{status === 'cancelled' ? 'Επιβεβαίωση Ακύρωσης' : 'Αποθήκευση Αλλαγών'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>

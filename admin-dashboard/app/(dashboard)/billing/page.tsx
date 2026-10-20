@@ -12,8 +12,7 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
   ShieldExclamationIcon,
-  DocumentTextIcon,
-  ChartBarIcon
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 
 interface Plan {
@@ -72,6 +71,7 @@ export default function BillingPage() {
   }, [selectedClinic?.id, isClinicLoading]);
 
   const isLoading = isClinicLoading || (loadingTab === 'billing' && !cachedBilling);
+  const isRefreshing = loadingTab === 'billing' && !!cachedBilling;
 
   const rawData = useMemo(() => {
     return (cachedBilling as Record<string, any>)?.data || cachedBilling;
@@ -123,15 +123,15 @@ export default function BillingPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-900 dark:text-slate-100">
-        <div className="h-10 w-64 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
-        <div className="h-16 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση στοιχείων χρέωσης">
+        <div className="h-20 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+        <div className="h-16 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
-          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
-          <div className="h-48 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
         </div>
-        <div className="h-64 bg-slate-200 dark:bg-slate-800 rounded-xl animate-pulse" />
+        <div className="h-64 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
       </div>
     );
   }
@@ -139,7 +139,7 @@ export default function BillingPage() {
   if (!isOwner) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto min-h-[60vh] flex items-center justify-center">
-        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-900/60 p-6 rounded-xl shadow-xs text-center space-y-3">
+        <div className="max-w-md w-full bg-white dark:bg-[#101622] border border-amber-200 dark:border-amber-900/60 p-6 rounded-2xl shadow-lg text-center space-y-3" role="alert">
           <div className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto border border-amber-200 dark:border-amber-800">
             <ShieldExclamationIcon className="w-6 h-6" />
           </div>
@@ -152,7 +152,7 @@ export default function BillingPage() {
     );
   }
 
-  // Υπολογισμοί ποσοστών χρήσης
+  // Calculate usage percentages
   const totalMinutes = activePeriod?.total_included_minutes || 1;
   const usedMinutes = activePeriod?.used_minutes || 0;
   const minutesPct = Math.min(100, Math.round((usedMinutes / totalMinutes) * 100));
@@ -166,9 +166,10 @@ export default function BillingPage() {
   const circumference = 2 * Math.PI * radius;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto text-slate-900 dark:text-slate-100 pb-12">
-      {/* Κεφαλίδα / Toolbar */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto text-slate-900 dark:text-slate-100 pb-12 font-sans selection:bg-emerald-500/30">
+      
+      {/* Header Toolbar */}
+      <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 p-5 shadow-xs dark:shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -183,8 +184,17 @@ export default function BillingPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors disabled:opacity-50 cursor-pointer"
+              aria-label="Ανανέωση δεδομένων"
+            >
+              <ArrowPathIcon className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+              <span>Ανανέωση</span>
+            </button>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/40 rounded-lg border border-slate-200 dark:border-slate-700/60">
               <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-500" />
               Μόνο Ανάγνωση
             </span>
@@ -192,12 +202,12 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Κατάσταση Πρόσβασης Φωνητικής Υπηρεσίας */}
+      {/* Voice Assistant Access Status */}
       <div
         className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs transition-colors ${
           isVoiceAllowed
-            ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-300'
-            : 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60 text-amber-950 dark:text-amber-300'
+            ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-950 dark:text-emerald-300'
+            : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50 text-amber-950 dark:text-amber-300'
         }`}
       >
         <div className="flex items-center gap-3">
@@ -240,12 +250,12 @@ export default function BillingPage() {
         </span>
       </div>
 
-      {/* Κατανάλωση Πόρων Τρέχουσας Περιόδου (Με SVG Donut Charts) */}
+      {/* Active Period Usage Metrics */}
       {activePeriod && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* 1. Στοιχεία Πλάνου */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          {/* Plan Summary */}
+          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                 <span className="text-[11px] font-bold uppercase tracking-wider">Τρέχον Πλάνο</span>
@@ -261,7 +271,7 @@ export default function BillingPage() {
               </div>
             </div>
 
-            <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+            <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <ClockIcon className="w-4 h-4 shrink-0 text-slate-400" />
               <span>
                 Περίοδος: {formatDate(activePeriod.starts_at)} — {formatDate(activePeriod.ends_at)}
@@ -269,15 +279,14 @@ export default function BillingPage() {
             </div>
           </div>
 
-          {/* 2. Donut Chart - Λεπτά Ομιλίας */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          {/* Talk Time Minutes Donut Chart */}
+          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span className="text-[11px] font-bold uppercase tracking-wider">Λεπτά Ομιλίας</span>
               <PhoneIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-4">
-              {/* Micro Donut Chart */}
               <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
                   <circle
@@ -292,7 +301,7 @@ export default function BillingPage() {
                     cx="40"
                     cy="40"
                     r={radius}
-                    className="stroke-emerald-500 transition-all duration-700 ease-out"
+                    className="stroke-emerald-500 dark:stroke-emerald-400 transition-all duration-700 ease-out"
                     strokeWidth="8"
                     strokeDasharray={circumference}
                     strokeDashoffset={circumference - (minutesPct / 100) * circumference}
@@ -305,32 +314,30 @@ export default function BillingPage() {
                 </span>
               </div>
 
-              {/* Data labels */}
               <div className="flex-1 space-y-1">
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Καταναλώθηκαν</p>
-                <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-base font-bold font-mono text-slate-900 dark:text-slate-100">
                   {usedMinutes} <span className="text-xs font-normal text-slate-400">/ {totalMinutes} λεπτά</span>
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs flex items-center justify-between">
               <span className="text-slate-500 dark:text-slate-400">Υπόλοιπο:</span>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              <span className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
                 {activePeriod.remaining_minutes ?? 0} λεπτά
               </span>
             </div>
           </div>
 
-          {/* 3. Donut Chart - Μηνύματα SMS */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          {/* SMS Messages Donut Chart */}
+          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
               <span className="text-[11px] font-bold uppercase tracking-wider">Μηνύματα SMS</span>
               <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-4">
-              {/* Micro Donut Chart */}
               <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
                   <circle
@@ -345,7 +352,7 @@ export default function BillingPage() {
                     cx="40"
                     cy="40"
                     r={radius}
-                    className="stroke-blue-500 transition-all duration-700 ease-out"
+                    className="stroke-blue-500 dark:stroke-blue-400 transition-all duration-700 ease-out"
                     strokeWidth="8"
                     strokeDasharray={circumference}
                     strokeDashoffset={circumference - (smsPct / 100) * circumference}
@@ -358,18 +365,17 @@ export default function BillingPage() {
                 </span>
               </div>
 
-              {/* Data labels */}
               <div className="flex-1 space-y-1">
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Απεσταλμένα</p>
-                <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+                <p className="text-base font-bold font-mono text-slate-900 dark:text-slate-100">
                   {usedSms} <span className="text-xs font-normal text-slate-400">/ {totalSms} SMS</span>
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs flex items-center justify-between">
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs flex items-center justify-between">
               <span className="text-slate-500 dark:text-slate-400">Διαθέσιμα:</span>
-              <span className="font-semibold text-blue-600 dark:text-blue-400">
+              <span className="font-semibold font-mono text-blue-600 dark:text-blue-400">
                 {activePeriod.remaining_sms_messages ?? 0} SMS
               </span>
             </div>
@@ -378,9 +384,9 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Πίνακας Ιστορικού */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between">
+      {/* History Table */}
+      <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#0D121C] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DocumentTextIcon className="w-4 h-4 text-slate-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -403,7 +409,7 @@ export default function BillingPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-[#0D121C] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Περίοδος</th>
                   <th className="py-3 px-4">Πλάνο</th>
                   <th className="py-3 px-4">Χρήση Λεπτών</th>
@@ -412,9 +418,9 @@ export default function BillingPage() {
                   <th className="py-3 px-4 text-right">Συνολικό Ποσό</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs text-slate-700 dark:text-slate-300">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs text-slate-700 dark:text-slate-300">
                 {periods.map((period, idx) => (
-                  <tr key={period.billing_period_id || idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
+                  <tr key={period.billing_period_id || idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/20 transition-colors">
                     <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-slate-100 whitespace-nowrap">
                       {formatDate(period.starts_at)} — {formatDate(period.ends_at)}
                     </td>
@@ -430,7 +436,7 @@ export default function BillingPage() {
                     <td className="py-3.5 px-4 font-mono text-center">
                       {period.started_call_count ?? 0}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100 text-right">
+                    <td className="py-3.5 px-4 font-bold font-mono text-slate-900 dark:text-slate-100 text-right">
                       {formatPrice(period.total_amount ?? period.plan?.price_minor, period.plan?.currency)}
                     </td>
                   </tr>
