@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { api } from '@/services/api';
+import { api, getStoredClinicId } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
-import { ClockIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, XMarkIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 
 interface CreateAppointmentModalProps {
   initialDate?: string;
@@ -57,17 +57,7 @@ const translateAvailabilityError = (errObj: any): string => {
   const code = String(errObj?.code || errObj?.response?.data?.code || '').toLowerCase();
 
   if (text.includes('closure') || text.includes('exception') || code.includes('closure') || errObj?.closure) {
-    const closureData = errObj?.closure || errObj?.details?.closure;
-    if (closureData?.starts_at && closureData?.ends_at) {
-      try {
-        const start = new Date(closureData.starts_at).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' });
-        const end = new Date(closureData.ends_at).toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' });
-        return start === end 
-          ? `Το ιατρείο είναι κλειστό στις ${start} (Αργία / Ειδική Εξαίρεση).`
-          : `Το ιατρείο είναι κλειστό από ${start} έως ${end}.`;
-      } catch {}
-    }
-    return 'Το ιατρείο είναι κλειστό την επιλεγμένη ημερομηνία (Αργία / Εξαίρεση).';
+    return 'Το ιατρείο είναι κλειστό την επιλεγμένη ημερομηνία (Αργία / Ειδική Εξαίρεση).';
   }
 
   if (
@@ -90,20 +80,10 @@ const translateAvailabilityError = (errObj: any): string => {
     text.includes('exists') ||
     code.includes('slot_taken')
   ) {
-    return 'Υπάρχει ήδη προγραμματισμένο ραντεβού την ίδια ώρα. Παρακαλώ επιλέξτε άλλη ώρα.';
+    return 'Υπάρχει ήδη προγραμματισμένο ραντεβού την ίδια ώρα. Δείτε παρακάτω το αμέσως επόμενο διαθέσιμο slot.';
   }
 
-  if (text.includes('notice') || text.includes('past') || code.includes('notice')) {
-    return 'Δεν είναι δυνατή η κράτηση σε αυτή την ώρα λόγω ελάχιστου χρόνου προειδοποίησης ή επειδή η ώρα έχει παρέλθει.';
-  }
-
-  if (text.includes('api error') || text.includes('bad request') || text.includes('400')) {
-    return 'Η επιλεγμένη ώρα δεν είναι διαθέσιμη (π.χ. υπάρχει επικάλυψη ή το ιατρείο είναι κλειστό).';
-  }
-
-  return rawMessage && typeof rawMessage === 'string' && rawMessage.length < 120 
-    ? rawMessage 
-    : 'Δεν ήταν δυνατή η ολοκλήρωση της κράτησης στην επιλεγμένη ώρα.';
+  return 'Η επιλεγμένη ώρα δεν είναι διαθέσιμη (υπάρχει επικάλυψη ή το ιατρείο είναι κλειστό).';
 };
 
 export default function CreateAppointmentModal({
@@ -113,31 +93,36 @@ export default function CreateAppointmentModal({
   onSuccess,
 }: CreateAppointmentModalProps) {
   const { selectedClinic } = useClinic();
+  const activeClinicId = selectedClinic?.id || getStoredClinicId();
+
   const [callerName, setCallerName] = useState('');
   const [phone, setPhone] = useState('');
   const [appointmentType, setAppointmentType] = useState('checkup');
   const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState(initialTime || '09:00');
 
+  // Manual Duration Toggle & State (Χωρίς βελάκια)
+  const [isManualDuration, setIsManualDuration] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(30);
+
   const [appointmentTypesList, setAppointmentTypesList] = useState<AppointmentType[]>(DEFAULT_APPOINTMENT_TYPES);
   const [settingsData, setSettingsData] = useState<any>(null);
+  const [bookedIntervals, setBookedIntervals] = useState<Array<{ start: number; end: number }>>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<Array<{ starts_at: string; ends_at: string }>>([]);
+  const [nextBestSlot, setNextBestSlot] = useState<{ starts_at: string; ends_at: string } | null>(null);
 
-  // Fetch Clinic Settings
+  // Fetch Clinic Settings & Day Appointments
   useEffect(() => {
-    async function fetchClinicSettings() {
-      if (!selectedClinic?.id) return;
+    async function fetchData() {
+      if (!activeClinicId || !date) return;
       try {
-        const res = await api.getSettings(selectedClinic.id);
+        const res = await api.getSettings(activeClinicId);
         const data = res?.settings || res;
 
         if (data) {
           setSettingsData(data);
-
           let parsedTypes: AppointmentType[] = [];
           if (Array.isArray(data.appointment_types) && data.appointment_types.length > 0) {
             parsedTypes = data.appointment_types.map((t: any) => ({
@@ -154,14 +139,6 @@ export default function CreateAppointmentModal({
               parsedTypes = keys.map((key) => {
                 const rawPrep = preps[key] || '';
                 let parsedTitle = GREEK_LABEL_MAP[key] || key.replace(/_/g, ' ');
-
-                if (typeof rawPrep === 'string' && rawPrep.startsWith('[TITLE:')) {
-                  const match = rawPrep.match(/^\[TITLE:\s*([\s\S]*?)\]/);
-                  if (match && match[1]) {
-                    parsedTitle = match[1];
-                  }
-                }
-
                 return {
                   code: key,
                   name: parsedTitle,
@@ -174,23 +151,39 @@ export default function CreateAppointmentModal({
           if (parsedTypes.length > 0) {
             setAppointmentTypesList(parsedTypes);
             const currentExists = parsedTypes.find((t) => t.code === appointmentType);
-            if (!currentExists) {
+            if (!currentExists && !isManualDuration) {
               setAppointmentType(parsedTypes[0].code);
               setDurationMinutes(parsedTypes[0].duration_minutes);
-            } else {
-              setDurationMinutes(currentExists.duration_minutes);
             }
           }
         }
+
+        const startOfDay = `${date}T00:00:00Z`;
+        const endOfDay = `${date}T23:59:59Z`;
+        const apptsRes = await api.getAppointments({ startAt: startOfDay, endAt: endOfDay, clinicId: activeClinicId });
+        const apptsList = Array.isArray(apptsRes) ? apptsRes : apptsRes?.appointments || [];
+
+        const intervals = apptsList
+          .filter((app: any) => app.status !== 'cancelled' && app.status !== 'failed')
+          .map((app: any) => {
+            const startMs = new Date(app.start_at || app.starts_at).getTime();
+            const dur = Number(app.duration_minutes || 30);
+            return {
+              start: startMs,
+              end: startMs + dur * 60000,
+            };
+          });
+        setBookedIntervals(intervals);
+
       } catch (err) {
-        console.error('Failed to load clinic settings:', err);
+        console.error('Failed to load clinic settings or appointments:', err);
       }
     }
 
-    fetchClinicSettings();
-  }, [selectedClinic?.id]);
+    fetchData();
+  }, [activeClinicId, date]);
 
-  // Compute exact time slots based on settings for selected date
+  // Compute exact time slots strictly within operating hours
   const { availableTimeSlots, isClosedDay } = useMemo(() => {
     if (!date) return { availableTimeSlots: [], isClosedDay: false };
 
@@ -199,11 +192,11 @@ export default function CreateAppointmentModal({
     const dayName = DAY_KEYS[dayIndex];
     const dayShort = DAY_KEYS_SHORT[dayIndex];
 
-    let startHour = 8;
+    let startHour = 9;
     let startMin = 0;
-    let endHour = 21;
+    let endHour = 17;
     let endMin = 0;
-    let stepMinutes = 15;
+    let stepMinutes = 30;
     let isClosed = false;
 
     if (settingsData) {
@@ -224,14 +217,14 @@ export default function CreateAppointmentModal({
           const rawEnd = daySchedule.end || daySchedule.ends_at || daySchedule.close || daySchedule.to;
 
           if (rawStart) {
-            const [h, m] = String(rawStart).split(':').map(Number);
-            if (!isNaN(h)) startHour = h;
-            if (!isNaN(m)) startMin = m;
+            const parts = String(rawStart).split(':').map(Number);
+            if (!isNaN(parts[0])) startHour = parts[0];
+            if (!isNaN(parts[1])) startMin = parts[1];
           }
           if (rawEnd) {
-            const [h, m] = String(rawEnd).split(':').map(Number);
-            if (!isNaN(h)) endHour = h;
-            if (!isNaN(m)) endMin = m;
+            const parts = String(rawEnd).split(':').map(Number);
+            if (!isNaN(parts[0])) endHour = parts[0];
+            if (!isNaN(parts[1])) endMin = parts[1];
           }
         }
       }
@@ -244,52 +237,98 @@ export default function CreateAppointmentModal({
 
     if (isClosed) return { availableTimeSlots: [], isClosedDay: true };
 
-    const slots: string[] = [];
-    const current = new Date();
-    current.setHours(startHour, startMin, 0, 0);
+    const rawSlots: string[] = [];
+    let currentMin = startHour * 60 + startMin;
+    const endMinLimit = endHour * 60 + endMin;
 
-    const end = new Date();
-    end.setHours(endHour, endMin, 0, 0);
-
-    while (current < end) {
-      const hh = String(current.getHours()).padStart(2, '0');
-      const mm = String(current.getMinutes()).padStart(2, '0');
-      slots.push(`${hh}:${mm}`);
-      current.setTime(current.getTime() + stepMinutes * 60000);
+    while (currentMin + durationMinutes <= endMinLimit) {
+      const hh = String(Math.floor(currentMin / 60)).padStart(2, '0');
+      const mm = String(currentMin % 60).padStart(2, '0');
+      rawSlots.push(`${hh}:${mm}`);
+      currentMin += stepMinutes;
     }
 
-    return { availableTimeSlots: slots, isClosedDay: false };
-  }, [settingsData, date]);
+    // Φιλτράρισμα ωρών που επικαλύπτονται με ήδη κλεισμένα ραντεβού
+    const freeSlots = rawSlots.filter((slotStr) => {
+      const [h, m] = slotStr.split(':').map(Number);
+      const slotStartMs = new Date(date + 'T' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00').getTime();
+      const slotEndMs = slotStartMs + durationMinutes * 60000;
 
-  // Sync selected time with available slots
+      const hasConflict = bookedIntervals.some((booked) => {
+        return slotStartMs < booked.end && slotEndMs > booked.start;
+      });
+
+      return !hasConflict;
+    });
+
+    return { availableTimeSlots: freeSlots, isClosedDay: false };
+  }, [settingsData, date, bookedIntervals, durationMinutes]);
+
+  // Sync selected time with available slots if needed (χωρίς loops)
   useEffect(() => {
     if (availableTimeSlots.length > 0 && !availableTimeSlots.includes(selectedTime)) {
       setSelectedTime(availableTimeSlots[0]);
     }
-  }, [availableTimeSlots, selectedTime]);
+  }, [availableTimeSlots]);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCode = e.target.value;
     setAppointmentType(selectedCode);
-    const found = appointmentTypesList.find((t) => t.code === selectedCode);
-    if (found) setDurationMinutes(found.duration_minutes);
+    if (!isManualDuration) {
+      const found = appointmentTypesList.find((t) => t.code === selectedCode);
+      if (found) setDurationMinutes(found.duration_minutes);
+    }
   };
 
   const calculateEndTime = () => {
     if (!selectedTime) return '';
     const [h, m] = selectedTime.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return '';
     const start = new Date();
     start.setHours(h, m, 0, 0);
     const end = new Date(start.getTime() + durationMinutes * 60000);
     return `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
   };
 
+  const parseValidDate = (dateVal: any): Date | null => {
+    if (!dateVal) return null;
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) return d;
+    const parsed = Date.parse(dateVal);
+    if (!isNaN(parsed)) return new Date(parsed);
+    return null;
+  };
+
+  const computeFrontendSuggestion = (currentSelectedTime: string) => {
+    if (!availableTimeSlots || availableTimeSlots.length === 0) return;
+
+    const currentIndex = availableTimeSlots.indexOf(currentSelectedTime);
+    const nextSlotTime = currentIndex !== -1 && currentIndex < availableTimeSlots.length - 1 
+      ? availableTimeSlots[currentIndex + 1] 
+      : availableTimeSlots[0];
+
+    if (!nextSlotTime) return;
+
+    const startsAtDate = new Date(`${date}T${nextSlotTime}:00`);
+    const endsAtDate = new Date(startsAtDate.getTime() + durationMinutes * 60000);
+
+    setNextBestSlot({
+      starts_at: startsAtDate.toISOString(),
+      ends_at: endsAtDate.toISOString(),
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAvailabilityError(null);
-    setSuggestions([]);
+    setNextBestSlot(null);
 
     if (!date || !selectedTime) return;
+
+    if (!activeClinicId) {
+      setAvailabilityError('Παρακαλώ επιλέξτε κλινική πριν προχωρήσετε σε κράτηση ραντεβού.');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -297,13 +336,20 @@ export default function CreateAppointmentModal({
 
       try {
         const checkRes = await api.checkAvailability(
-          { starts_at: startsAtISO, duration_minutes: durationMinutes },
-          selectedClinic?.id
+          startsAtISO,
+          durationMinutes,
+          activeClinicId
         );
 
         if (checkRes && checkRes.available === false) {
           setAvailabilityError(translateAvailabilityError(checkRes));
-          if (Array.isArray(checkRes.suggestions)) setSuggestions(checkRes.suggestions);
+          
+          if (Array.isArray(checkRes.suggestions) && checkRes.suggestions.length > 0) {
+            setNextBestSlot(checkRes.suggestions[0]);
+          } else {
+            computeFrontendSuggestion(selectedTime);
+          }
+
           setIsSubmitting(false);
           return;
         }
@@ -313,37 +359,41 @@ export default function CreateAppointmentModal({
 
       await api.createAppointment(
         {
-          clinic_id: selectedClinic?.id,
           caller_name: callerName,
           phone: phone,
           appointment_type_code: appointmentType,
           start_at: startsAtISO,
           duration_minutes: durationMinutes,
-          status: 'booked',
         },
-        selectedClinic?.id
+        activeClinicId
       );
 
       onSuccess();
     } catch (err: any) {
       console.error('Error creating appointment:', err);
       setAvailabilityError(translateAvailabilityError(err));
+      computeFrontendSuggestion(selectedTime);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSelectSuggestion = (isoString: string) => {
-    const suggestedDate = new Date(isoString);
-    const dateStr = suggestedDate.toISOString().split('T')[0];
-    const hours = String(suggestedDate.getHours()).padStart(2, '0');
-    const minutes = String(suggestedDate.getMinutes()).padStart(2, '0');
+  const handleApplyNextBestSlot = () => {
+    if (!nextBestSlot) return;
+    const sugDate = parseValidDate(nextBestSlot.starts_at);
+    if (!sugDate) return;
+
+    const dateStr = sugDate.toISOString().split('T')[0];
+    const hours = String(sugDate.getHours()).padStart(2, '0');
+    const minutes = String(sugDate.getMinutes()).padStart(2, '0');
 
     setDate(dateStr);
     setSelectedTime(`${hours}:${minutes}`);
     setAvailabilityError(null);
-    setSuggestions([]);
+    setNextBestSlot(null);
   };
+
+  const parsedBestSlotDate = nextBestSlot ? parseValidDate(nextBestSlot.starts_at) : null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
@@ -356,39 +406,45 @@ export default function CreateAppointmentModal({
             <span>Νέο Ραντεβού</span>
           </h3>
           <button 
+            type="button"
             onClick={onClose} 
-            className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Availability Error Banner */}
+        {/* Availability Error Banner & Automated Next Slot Suggestion */}
         {availabilityError && (
-          <div className="p-3.5 bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs rounded-xl space-y-2">
-            <p className="font-bold flex items-start gap-1.5">
-              <span className="shrink-0">⚠️️</span> 
-              <span>{availabilityError}</span>
-            </p>
-            {suggestions.length > 0 && (
-              <div className="pt-1 border-t border-amber-800/40">
-                <p className="font-semibold text-amber-300 mb-1.5">Προτεινόμενες εναλλακτικές ώρες:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {suggestions.map((sug, i) => {
-                    const d = new Date(sug.starts_at);
-                    const timeLabel = d.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => handleSelectSuggestion(sug.starts_at)}
-                        className="px-2.5 py-1 bg-slate-900 border border-amber-700 hover:bg-amber-900/60 text-amber-200 rounded-lg text-[11px] font-bold transition-colors"
-                      >
-                        {timeLabel}
-                      </button>
-                    );
-                  })}
+          <div className="p-4 bg-amber-950/50 border border-amber-800/80 text-amber-200 text-xs rounded-2xl space-y-3 shadow-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-amber-400 font-bold text-sm shrink-0">⚠️</span>
+              <p className="font-semibold leading-relaxed">{availabilityError}</p>
+            </div>
+
+            {nextBestSlot && parsedBestSlotDate && (
+              <div className="pt-2 border-t border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-900/30 p-3 rounded-xl border border-amber-700/50">
+                <div>
+                  <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1">
+                    Προτεινόμενο Slot
+                  </span>
+                  <p className="text-white font-mono font-bold text-sm">
+                    {parsedBestSlotDate.toLocaleString('el-GR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleApplyNextBestSlot}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer whitespace-nowrap"
+                >
+                  Χρήση αυτής της ώρας
+                </button>
               </div>
             )}
           </div>
@@ -406,6 +462,7 @@ export default function CreateAppointmentModal({
                 required
                 value={callerName}
                 onChange={(e) => setCallerName(e.target.value)}
+                placeholder="π.χ. Μαρία Παπαδοπούλου"
                 className="w-full p-2.5 border border-slate-700 rounded-xl bg-slate-800/80 text-slate-100 font-medium outline-none focus:border-blue-500 transition-colors"
               />
             </div>
@@ -417,29 +474,56 @@ export default function CreateAppointmentModal({
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                placeholder="π.χ. +306900000000"
                 className="w-full p-2.5 border border-slate-700 rounded-xl bg-slate-800/80 text-slate-100 font-medium outline-none focus:border-blue-500 transition-colors"
               />
             </div>
           </div>
 
-          {/* Row 2: Appointment Type & Date */}
+          {/* Row 2: Appointment Type / Manual Duration & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="font-semibold text-slate-300">Τύπος Ραντεβού</label>
-                <span className="text-slate-400 text-[11px]">Διάρκεια: {durationMinutes}λ</span>
+                <button
+                  type="button"
+                  onClick={() => setIsManualDuration(!isManualDuration)}
+                  className="text-[11px] font-bold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <PencilSquareIcon className="w-3.5 h-3.5" />
+                  <span>{isManualDuration ? 'Προκαθορισμένος τύπος' : 'Χειροκίνητη διάρκεια'}</span>
+                </button>
               </div>
-              <select
-                value={appointmentType}
-                onChange={handleTypeChange}
-                className="w-full p-2.5 border border-slate-700 rounded-xl bg-slate-800/80 text-slate-100 font-semibold outline-none focus:border-blue-500 transition-colors"
-              >
-                {appointmentTypesList.map((type) => (
-                  <option key={type.code} value={type.code} className="bg-slate-800 text-slate-100">
-                    {type.name} ({type.duration_minutes} λ.)
-                  </option>
-                ))}
-              </select>
+
+              {isManualDuration ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={durationMinutes}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setDurationMinutes(val === '' ? 0 : Number(val));
+                    }}
+                    placeholder="π.χ. 45"
+                    className="w-full p-2.5 border border-slate-700 rounded-xl bg-slate-800/80 text-slate-100 font-semibold outline-none focus:border-blue-500 transition-colors"
+                  />
+                  <span className="text-slate-400 whitespace-nowrap">λεπτά</span>
+                </div>
+              ) : (
+                <select
+                  value={appointmentType}
+                  onChange={handleTypeChange}
+                  className="w-full p-2.5 border border-slate-700 rounded-xl bg-slate-800/80 text-slate-100 font-semibold outline-none focus:border-blue-500 transition-colors"
+                >
+                  {appointmentTypesList.map((type) => (
+                    <option key={type.code} value={type.code} className="bg-slate-800 text-slate-100">
+                      {type.name} ({type.duration_minutes} λ.)
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
@@ -454,13 +538,13 @@ export default function CreateAppointmentModal({
             </div>
           </div>
 
-          {/* Row 3: Time Slot Selection (Settings Linked) */}
+          {/* Row 3: Time Slot Selection */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="font-semibold text-slate-300">Ώρα Έναρξης</label>
               {selectedTime && !isClosedDay && (
                 <span className="text-blue-400 font-bold text-[11px]">
-                  {selectedTime} - {calculateEndTime()} ({durationMinutes}λ)
+                  {selectedTime} - {calculateEndTime()} ({durationMinutes} λεπτά)
                 </span>
               )}
             </div>
@@ -468,6 +552,10 @@ export default function CreateAppointmentModal({
             {isClosedDay ? (
               <div className="p-2.5 bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs rounded-xl">
                 Το ιατρείο είναι κλειστό την επιλεγμένη ημερομηνία.
+              </div>
+            ) : availableTimeSlots.length === 0 ? (
+              <div className="p-2.5 bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs rounded-xl">
+                Δεν υπάρχουν διαθέσιμα slots εντός ωραρίου για την επιλεγμένη διάρκεια.
               </div>
             ) : (
               <select
@@ -489,14 +577,14 @@ export default function CreateAppointmentModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 font-semibold transition-colors"
+              className="px-4 py-2 border border-slate-700 text-slate-300 rounded-xl hover:bg-slate-800 font-semibold transition-colors cursor-pointer"
             >
               Ακύρωση
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || isClosedDay}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold shadow-xs transition-colors disabled:opacity-50"
+              disabled={isSubmitting || isClosedDay || availableTimeSlots.length === 0}
+              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
             </button>

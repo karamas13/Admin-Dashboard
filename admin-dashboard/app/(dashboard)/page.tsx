@@ -50,6 +50,21 @@ export default function DashboardHome() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCallback, setSelectedCallback] = useState<any | null>(null);
 
+  // Υποστήριξη κλεισίματος με το πλήκτρο Escape για το modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedCallback(null);
+      }
+    };
+    if (selectedCallback) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedCallback]);
+
   // Clean, single trigger for fetching dashboard data on clinic load/change
   useEffect(() => {
     if (!isClinicLoading && selectedClinic?.id) {
@@ -153,9 +168,6 @@ export default function DashboardHome() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               {selectedClinic?.name ? selectedClinic.name : 'Κέντρο Ελέγχου'}
             </h1>
-            <span className="inline-flex items-center rounded-lg bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
-              Live Overview
-            </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Διαχείριση σημερινών ραντεβού, εκκρεμών κλήσεων και αιτημάτων.
@@ -336,7 +348,7 @@ export default function DashboardHome() {
 
         {/* Secondary Callbacks Section */}
         <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C]">
+          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C] rounded-t-2xl">
             <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <PhoneCallIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Εκκρεμότητες Callbacks
@@ -406,29 +418,31 @@ export default function DashboardHome() {
               </div>
             )}
           </div>
-
-          <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-[#0D121C] rounded-b-2xl">
-            <p className="text-xs text-slate-500 dark:text-slate-400 text-center font-medium">
-              Ταξινόμηση βάσει προτεραιότητας & χρόνου δημιουργίας.
-            </p>
-          </div>
         </div>
       </div>
 
       {/* Callback Details Modal */}
       {selectedCallback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-[#101622] rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-200" 
+          role="dialog" 
+          aria-modal="true"
+          onClick={() => setSelectedCallback(null)}
+        >
+          <div 
+            className="bg-white dark:bg-[#101622] rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Λεπτομέρειες Επανάκλησης
               </h3>
               <button
                 onClick={() => setSelectedCallback(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Κλείσιμο"
               >
-                Κλείσιμο
+                ✕
               </button>
             </div>
 
@@ -455,7 +469,7 @@ export default function DashboardHome() {
               )}
             </div>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setSelectedCallback(null)}
                 className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"

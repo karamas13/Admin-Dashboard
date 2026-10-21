@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'AI Receptionist Dashboard',
+  title: 'Chrysus Digital Dashboard',
   description: 'Production Customer Admin Panel',
 };
 

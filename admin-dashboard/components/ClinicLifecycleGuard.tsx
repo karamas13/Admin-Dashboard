@@ -7,7 +7,7 @@ export function ClinicLifecycleGuard({ children }: { children: React.ReactNode }
   const { isReadOnly, isClosed, isLoading, selectedClinic } = useClinic();
 
   if (isLoading) {
-    return <div className="p-8 text-center text-slate-500">Φόρτωση δεδομένων κλινικής...</div>;
+    return <div className="p-8 text-center text-slate-500">Φόρτωση δεδομένων...</div>;
   }
 
   if (isClosed) {

@@ -535,9 +535,9 @@ export default function AppointmentsPage() {
                     return (
                       <div 
                         key={day.name} 
-                        className={`p-1 min-h-[56px] border-r border-slate-100 dark:border-slate-800/80 last:border-0 flex items-center transition-colors ${
+                        className={`p-1 min-h-14 border-r border-slate-100 dark:border-slate-800/80 last:border-0 flex items-center transition-colors ${
                           !isOpenSlot && !appt 
-                            ? 'bg-slate-50/50 dark:bg-[#090D14]/80' 
+                            ? 'bg-red-100 dark:bg-[#090D14]/80' 
                             : 'bg-white dark:bg-[#101622]'
                         }`}
                       >

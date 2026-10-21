@@ -13,7 +13,9 @@ import {
   CalendarDaysIcon,
   XMarkIcon,
   ArrowPathIcon,
-  ChatBubbleBottomCenterTextIcon
+  ChatBubbleBottomCenterTextIcon,
+  NoSymbolIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -97,7 +99,6 @@ export default function ScheduleExceptionsPage() {
   const [showNoteField, setShowNoteField] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Prevent infinite fetch loops using function ref pattern
   const fetchSettingsRef = useRef(fetchSettings);
   const fetchClosuresRef = useRef(fetchClosures);
 
@@ -121,21 +122,17 @@ export default function ScheduleExceptionsPage() {
     }
   }, [settings]);
 
-  // Client-side filtering: Current Month / Upcoming vs Past History
   const filteredExceptions = useMemo(() => {
     if (!exceptions || !Array.isArray(exceptions)) return [];
 
     const now = new Date();
-    // Start of the current month (e.g. Oct 1st)
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     return exceptions.filter((item) => {
       const itemEnd = new Date(item.ends_at);
       if (showHistory) {
-        // Past History: closures that ended before the current month
         return itemEnd < startOfCurrentMonth;
       } else {
-        // Current / Upcoming: closures ending within or after the current month
         return itemEnd >= startOfCurrentMonth;
       }
     });
@@ -161,7 +158,6 @@ export default function ScheduleExceptionsPage() {
       setErrorMsg('');
 
       const data = settings?.settings || settings || {};
-
       const payload = {
         ...data,
         working_hours_json: workingHours,
@@ -281,7 +277,6 @@ export default function ScheduleExceptionsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30 pb-28">
       
-      {/* Navigation Guard Modal */}
       {showNavModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
@@ -333,7 +328,6 @@ export default function ScheduleExceptionsPage() {
         </div>
       )}
 
-      {/* Header Banner */}
       <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -351,7 +345,6 @@ export default function ScheduleExceptionsPage() {
         </div>
       </div>
 
-      {/* Status Banners */}
       {successMsg && (
         <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2.5" role="status">
           <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -530,7 +523,6 @@ export default function ScheduleExceptionsPage() {
           </div>
         </div>
 
-        {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead className="bg-slate-50/80 dark:bg-[#0D121C] text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800/80 uppercase text-[11px] tracking-wider">
@@ -616,7 +608,6 @@ export default function ScheduleExceptionsPage() {
           </table>
         </div>
 
-        {/* Mobile Card View */}
         <div className="md:hidden p-4 space-y-3">
           {isLoading && filteredExceptions.length === 0 ? (
             <div className="p-6 text-center text-slate-400 text-xs">Φόρτωση...</div>
@@ -662,7 +653,6 @@ export default function ScheduleExceptionsPage() {
         </div>
       </div>
 
-      {/* Floating Bottom Bar for Unsaved Changes */}
       {isDirty && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-lg bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -690,119 +680,176 @@ export default function ScheduleExceptionsPage() {
         </div>
       )}
 
-      {/* ADD EXCEPTION MODAL */}
+      {/* RE-DESIGNED USER-FRIENDLY ADD EXCEPTION MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 rounded-2xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
+          <div className="bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
             
             {/* Modal Header */}
-            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-4">
-              <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                Δημιουργία Νέας Εξαίρεσης
-              </h3>
+            <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800/80 pb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                  <CalendarDaysIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Προσθήκη Νέας Εξαίρεσης</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Επιλέξτε πώς θέλετε να επηρεαστεί το πρόγραμμα της επιχείρησης.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Κλείσιμο"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateException} className="space-y-6">
-              {/* 2-Column Grid Input Layout */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                {/* Column 1: Type Selection */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Τύπος Εξαίρεσης
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-[#0D121C] rounded-xl border border-slate-200 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setAvailabilityEffect('closed')}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        availabilityEffect === 'closed'
-                          ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/40 shadow-xs'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Κλειστό
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAvailabilityEffect('open')}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        availabilityEffect === 'open'
-                          ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 shadow-xs'
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                      }`}
-                    >
-                      Έκτακτο Ωράριο
-                    </button>
+            <form onSubmit={handleCreateException} className="space-y-5">
+              
+              {/* STEP 1: CLEAR INTUITIVE TABS (CLOSED vs EXTRA HOURS) */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  1. Τι θα συμβεί αυτές τις ημέρες;
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvailabilityEffect('closed');
+                      setReasonCode('holiday');
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+                      availabilityEffect === 'closed'
+                        ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 shadow-xs ring-2 ring-rose-500/20'
+                        : 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="font-bold text-xs sm:text-sm">Κλειστό / Αργία</span>
+                      <NoSymbolIcon className="w-4 h-4 text-rose-500 shrink-0" />
+                    </div>
+                    <p className="text-[11px] opacity-80 leading-snug">
+                      Δεν θα είναι δυνατή η κράτηση ραντεβού (π.χ. αργίες, άδεια).
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAvailabilityEffect('open');
+                      setReasonCode('extra_hours');
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+                      availabilityEffect === 'open'
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 shadow-xs ring-2 ring-emerald-500/20'
+                        : 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="font-bold text-xs sm:text-sm">Έκτακτο Ωράριο</span>
+                      <SparklesIcon className="w-4 h-4 text-emerald-500 shrink-0" />
+                    </div>
+                    <p className="text-[11px] opacity-80 leading-snug">
+                      Ανοιχτά σε ώρες εκτός του κανονικού προγράμματος.
+                    </p>
+                  </button>
+
+                </div>
+              </div>
+
+              {/* STEP 2: REASON SELECTION */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  2. Αιτιολογία
+                </label>
+                <select
+                  value={reasonCode}
+                  onChange={(e) => setReasonCode(e.target.value)}
+                  className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                >
+                  {availabilityEffect === 'closed' ? (
+                    <>
+                      <option value="holiday">Επίσημη Αργία</option>
+                      <option value="vacation">Διακοπές / Άδεια</option>
+                      <option value="personal">Προσωπικός Λόγος / Απουσία</option>
+                      <option value="staff_absence">Απουσία Προσωπικού</option>
+                      <option value="closed">Γενικό Κλείσιμο</option>
+                      <option value="other">Άλλο</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="extra_hours">Έκτακτες Ώρες Λειτουργίας</option>
+                      <option value="other">Άλλο</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* STEP 3: DATES SELECTION */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  3. Χρονικό Διάστημα
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-medium text-slate-500">Από ημερομηνία</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => {
+                        setStartDate(e.target.value);
+                        if (!endDate) setEndDate(e.target.value); // Auto fill end date for convenience
+                      }}
+                      required
+                      className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-medium text-slate-500">Έως ημερομηνία</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required
+                      className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
                   </div>
                 </div>
+              </div>
 
-                {/* Column 2: Reason Select */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Αιτιολογία
-                  </label>
-                  <select
-                    value={reasonCode}
-                    onChange={(e) => setReasonCode(e.target.value)}
-                    className="w-full h-10 px-3.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+              {/* STEP 4: DURATION TOGGLE (ALL DAY vs CUSTOM HOURS) */}
+              <div className="space-y-2.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    4. Διάρκεια Ημέρας
+                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setIsAllDay(!isAllDay)}
+                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
-                    <option value="holiday">Επίσημη Αργία</option>
-                    <option value="vacation">Διακοπές</option>
-                    <option value="personal">Προσωπικός Λόγος / Απουσία</option>
-                    <option value="staff_absence">Απουσία Προσωπικού</option>
-                    <option value="extra_hours">Έκτακτο Ωράριο</option>
-                    <option value="closed">Κλειστό</option>
-                    <option value="other">Άλλο</option>
-                  </select>
+                    {isAllDay ? 'Αλλαγή σε συγκεκριμένες ώρες' : '📅 Ολόκληρη ημέρα'}
+                  </button>
                 </div>
 
-                {/* Date Selection Row */}
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Ημερομηνία Έναρξης
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    required
-                    className="w-full h-10 px-3.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Ημερομηνία Λήξης
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    required
-                    className="w-full h-10 px-3.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                  />
-                </div>
-
-                {/* Custom Hours Option (Shown if NOT All Day) */}
-                {!isAllDay && (
-                  <>
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                        Ώρα Έναρξης
-                      </label>
+                {isAllDay ? (
+                  <div className="p-3 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                    <ClockIcon className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span>Η εξαίρεση θα ισχύει για <strong>ολόκληρη την ημέρα / μέρες</strong>.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-slate-500">Ώρα Έναρξης</span>
                       <select
                         value={startTime}
                         onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full h-10 px-3.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500"
                       >
                         {TIME_OPTIONS.map((time) => (
                           <option key={time} value={time}>{time}</option>
@@ -810,93 +857,76 @@ export default function ScheduleExceptionsPage() {
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                        Ώρα Λήξης
-                      </label>
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-slate-500">Ώρα Λήξης</span>
                       <select
                         value={endTime}
                         onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full h-10 px-3.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                        className="w-full h-10 px-3 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500"
                       >
                         {TIME_OPTIONS.map((time) => (
                           <option key={time} value={time}>{time}</option>
                         ))}
                       </select>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* Optional Note Field */}
-              {showNoteField && (
-                <div className="space-y-1.5 animate-in fade-in duration-150">
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400">
-                    Σημείωση / Λεπτομέρειες
-                  </label>
+              {/* OPTIONAL NOTE */}
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowNoteField(!showNoteField)}
+                  className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ChatBubbleBottomCenterTextIcon className="w-4 h-4 text-emerald-500" />
+                  <span>{showNoteField ? 'Απόκρυψη σημείωσης' : '+ Προσθήκη εσωτερικής σημείωσης'}</span>
+                </button>
+
+                {showNoteField && (
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={2}
-                    placeholder="Επιπλέον διευκρινίσεις..."
-                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl bg-white dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none transition-colors"
+                    placeholder="π.χ. Κλειστά λόγω τεχνικών εργασιών..."
+                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none transition-colors"
                   />
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Modal Action Bar */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-2">
-                
-                {/* Option Toggles */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsAllDay(!isAllDay)}
-                    className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-                      isAllDay
-                        ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200'
-                        : 'bg-white dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <ClockIcon className="w-4 h-4 shrink-0" />
-                    <span>{isAllDay ? 'Ολόκληρη Ημέρα' : 'Ειδικό Ωράριο'}</span>
-                  </button>
+              {/* MODAL FOOTER BUTTONS */}
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Ακύρωση
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowNoteField(!showNoteField)}
-                    className={`px-3.5 py-2 rounded-xl border text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer ${
-                      showNoteField || note
-                        ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200'
-                        : 'bg-white dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <ChatBubbleBottomCenterTextIcon className="w-4 h-4 shrink-0" />
-                    <span>Σημείωση</span>
-                  </button>
-                </div>
-
-                {/* Submit Button */}
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
                       <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                      <span>Δημιουργία...</span>
+                      <span>Αποθήκευση...</span>
                     </>
                   ) : (
                     <span>Δημιουργία Εξαίρεσης</span>
                   )}
                 </button>
               </div>
+
             </form>
 
           </div>
         </div>
       )}
+
     </div>
   );
 }

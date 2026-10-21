@@ -105,7 +105,6 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
     loadSessionAndClinics();
   }, []);
 
-  // 4. Εναλλαγή Κλινικής (Switch Clinic)
   const setSelectedClinic = async (clinic: Clinic) => {
     try {
       setIsLoading(true);
