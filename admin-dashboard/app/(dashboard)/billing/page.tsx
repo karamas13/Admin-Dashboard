@@ -12,7 +12,11 @@ import {
   ExclamationTriangleIcon,
   ArrowPathIcon,
   ShieldExclamationIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ChartBarIcon,
+  SparklesIcon,
+  BoltIcon,
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
 
 interface Plan {
@@ -53,6 +57,81 @@ interface BillingPeriod {
   started_call_count?: number;
   total_amount?: string | number;
   status?: string;
+}
+
+// 1. Metric Card Component
+function AnalyticsMetricCard({ label, value, icon: IconComponent, highlighted = false }: { label: string; value: string | number; icon: any; highlighted?: boolean }) {
+  return (
+    <div className={`p-4 rounded-xl border flex flex-col justify-between gap-3 shadow-xs transition-all ${
+      highlighted 
+        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60' 
+        : 'bg-white dark:bg-[#101622] border-slate-200 dark:border-slate-800/80'
+    }`}>
+      <div className="flex items-center justify-between">
+        <div className={`p-2 rounded-lg ${highlighted ? 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'}`}>
+          <IconComponent className="w-4 h-4" />
+        </div>
+        {highlighted && (
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+            Κύριο Πλάνο
+          </span>
+        )}
+      </div>
+      <div>
+        <p className="text-2xl font-bold font-mono text-slate-900 dark:text-slate-100">{value}</p>
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+// 2. Circular / Donut Pie Chart Component
+function CircularProgressChart({ label, current, total, unit, strokeColorClass }: { label: string; current: number; total: number; unit: string; strokeColorClass: string }) {
+  const percentage = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
+  const radius = 32;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="bg-slate-50/60 dark:bg-[#0D121C] p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 flex items-center gap-4">
+      <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            className="stroke-slate-200 dark:stroke-slate-800"
+            strokeWidth="8"
+            fill="transparent"
+          />
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            className={`${strokeColorClass} transition-all duration-700 ease-out`}
+            strokeWidth="8"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="transparent"
+          />
+        </svg>
+        <span className="absolute text-xs font-bold font-mono text-slate-800 dark:text-slate-200">
+          {percentage}%
+        </span>
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{label}</h4>
+        <p className="text-sm font-bold font-mono text-slate-900 dark:text-slate-100">
+          {current.toLocaleString('el-GR')} <span className="text-xs font-normal text-slate-400">/ {total.toLocaleString('el-GR')} {unit}</span>
+        </p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Υπόλοιπο: <span className="font-semibold text-slate-700 dark:text-slate-300">{(total - current).toLocaleString('el-GR')} {unit}</span>
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function BillingPage() {
@@ -98,14 +177,15 @@ export default function BillingPage() {
     return periods.find((p) => p.billing_period_id === voiceAccess?.billing_period_id) || periods[0];
   }, [periods, voiceAccess?.billing_period_id]);
 
+  // Format date strictly as ηη/μμ/ετος (DD/MM/YYYY)
   const formatDate = (isoString?: string) => {
     if (!isoString) return '-';
     try {
-      return new Date(isoString).toLocaleDateString('el-GR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
+      const d = new Date(isoString);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
     } catch {
       return isoString;
     }
@@ -126,10 +206,11 @@ export default function BillingPage() {
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto min-h-screen text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση στοιχείων χρέωσης">
         <div className="h-20 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
         <div className="h-16 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
-          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
-          <div className="h-48 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="h-32 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+          <div className="h-32 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+          <div className="h-32 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
+          <div className="h-32 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
         </div>
         <div className="h-64 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-xl animate-pulse" />
       </div>
@@ -145,25 +226,20 @@ export default function BillingPage() {
           </div>
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Περιορισμένη Πρόσβαση</h2>
           <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            Δεν διαθέτετε τα απαραίτητα δικαιώματα για την προβολή των στοιχείων χρέωσης. Η πρόσβαση επιτρέπεται αποκλειστικά στον <span className="font-semibold text-slate-800 dark:text-slate-200">Ιδιοκτήτη (Owner)</span> της κλινικής.
+            Δεν διαθέτετε τα απαραίτητα δικαιώματα για την προβολή των στοιχείων χρέωσης. Η πρόσβαση επιτρέπεται αποκλειστικά στον <span className="font-semibold text-slate-800 dark:text-slate-200">Ιδιοκτήτης (Owner)</span> της κλινικής.
           </p>
         </div>
       </div>
     );
   }
 
-  // Calculate usage percentages
-  const totalMinutes = activePeriod?.total_included_minutes || 1;
+  const totalMinutes = activePeriod?.total_included_minutes || 0;
   const usedMinutes = activePeriod?.used_minutes || 0;
-  const minutesPct = Math.min(100, Math.round((usedMinutes / totalMinutes) * 100));
-
-  const totalSms = (activePeriod?.included_sms_messages || 0) + (activePeriod?.extra_included_sms_messages || 0) || 1;
+  const totalSms = (activePeriod?.included_sms_messages || 0) + (activePeriod?.extra_included_sms_messages || 0);
   const usedSms = activePeriod?.used_sms_messages || 0;
-  const smsPct = Math.min(100, Math.round((usedSms / totalSms) * 100));
+  const totalCalls = activePeriod?.started_call_count || 0;
 
-  // Donut Graph SVG parameters
-  const radius = 32;
-  const circumference = 2 * Math.PI * radius;
+  const maxPeriodMinutes = Math.max(1, ...periods.map(p => p.used_minutes || 0));
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto text-slate-900 dark:text-slate-100 pb-12 font-sans selection:bg-emerald-500/30">
@@ -175,11 +251,11 @@ export default function BillingPage() {
             <div className="flex items-center gap-2">
               <CreditCardIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />
               <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-                Συνδρομή & Χρήση Πόρων
+                Συνδρομή & Analytics Χρέωσης
               </h1>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Επισκόπηση πλάνου, ορίων κλήσεων και ιστορικού τιμολόγησης για την επιχείρηση{' '}
+              Προηγμένη ανάλυση πόρων, κυκλικά διαγράμματα κατανάλωσης και ιστορικές τάσεις για την επιχείρηση{' '}
               <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
             </p>
           </div>
@@ -250,137 +326,122 @@ export default function BillingPage() {
         </span>
       </div>
 
-      {/* Active Period Usage Metrics */}
+      {/* Analytics Summary Metric Cards */}
       {activePeriod && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* Plan Summary */}
-          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-                <span className="text-[11px] font-bold uppercase tracking-wider">Τρέχον Πλάνο</span>
-                <CreditCardIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="mt-4">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 capitalize">
-                  {activePeriod.plan?.name || 'Βασικό Πλάνο'}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <ChartBarIcon className="w-4 h-4 text-slate-500" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              Σύνοψη Πόρων Τρέχουσας Περιόδου
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <AnalyticsMetricCard 
+              label="Ενεργό Πλάνο Συνδρομής" 
+              value={activePeriod.plan?.name || 'Βασικό'} 
+              icon={SparklesIcon} 
+              highlighted 
+            />
+            <AnalyticsMetricCard 
+              label="Συνολικές Κλήσεις AI" 
+              value={totalCalls} 
+              icon={PhoneIcon} 
+            />
+            <AnalyticsMetricCard 
+              label="Καταναλωμένος Χρόνος" 
+              value={`${usedMinutes.toFixed(1)} λ.`} 
+              icon={ClockIcon} 
+            />
+            <AnalyticsMetricCard 
+              label="Απεσταλμένα SMS" 
+              value={usedSms} 
+              icon={ChatBubbleLeftEllipsisIcon} 
+            />
+          </div>
+
+          {/* Circular / Pie Charts Card */}
+          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <BoltIcon className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Κυκλικά Διαγράμματα Κατανάλωσης (Pie / Donut Charts)
                 </h3>
-                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-1">
-                  {formatPrice(activePeriod.plan?.price_minor, activePeriod.plan?.currency)} <span className="text-xs font-normal text-slate-400">/ μήνα</span>
-                </p>
               </div>
-            </div>
-
-            <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-              <ClockIcon className="w-4 h-4 shrink-0 text-slate-400" />
-              <span>
-                Περίοδος: {formatDate(activePeriod.starts_at)} — {formatDate(activePeriod.ends_at)}
+              <span className="text-xs text-slate-400 font-mono">
+                {formatDate(activePeriod.starts_at)} — {formatDate(activePeriod.ends_at)}
               </span>
             </div>
-          </div>
 
-          {/* Talk Time Minutes Donut Chart */}
-          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Λεπτά Ομιλίας</span>
-              <PhoneIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r={radius}
-                    className="stroke-slate-100 dark:stroke-slate-800"
-                    strokeWidth="8"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r={radius}
-                    className="stroke-emerald-500 dark:stroke-emerald-400 transition-all duration-700 ease-out"
-                    strokeWidth="8"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference - (minutesPct / 100) * circumference}
-                    strokeLinecap="round"
-                    fill="transparent"
-                  />
-                </svg>
-                <span className="absolute text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {minutesPct}%
-                </span>
-              </div>
-
-              <div className="flex-1 space-y-1">
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Καταναλώθηκαν</p>
-                <p className="text-base font-bold font-mono text-slate-900 dark:text-slate-100">
-                  {usedMinutes} <span className="text-xs font-normal text-slate-400">/ {totalMinutes} λεπτά</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs flex items-center justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Υπόλοιπο:</span>
-              <span className="font-semibold font-mono text-emerald-600 dark:text-emerald-400">
-                {activePeriod.remaining_minutes ?? 0} λεπτά
-              </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <CircularProgressChart 
+                label="Λεπτά Ομιλίας" 
+                current={Number(usedMinutes.toFixed(2))} 
+                total={totalMinutes} 
+                unit="λεπτά" 
+                strokeColorClass="stroke-emerald-500 dark:stroke-emerald-400" 
+              />
+              <CircularProgressChart 
+                label="Μηνύματα SMS" 
+                current={usedSms} 
+                total={totalSms} 
+                unit="SMS" 
+                strokeColorClass="stroke-blue-500 dark:stroke-blue-400" 
+              />
             </div>
           </div>
+        </div>
+      )}
 
-          {/* SMS Messages Donut Chart */}
-          <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Μηνύματα SMS</span>
-              <ChatBubbleLeftEllipsisIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+      {/* Historical Trend / Bar Chart with Clear Date Ranges in DD/MM/YYYY */}
+      {periods.length > 0 && (
+        <div className="bg-white dark:bg-[#101622] p-5 rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <ArrowTrendingUpIcon className="w-4 h-4 text-blue-500" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Ιστορικό Χρήσης Λεπτών ανά Περίοδο
+              </h3>
             </div>
-
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r={radius}
-                    className="stroke-slate-100 dark:stroke-slate-800"
-                    strokeWidth="8"
-                    fill="transparent"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r={radius}
-                    className="stroke-blue-500 dark:stroke-blue-400 transition-all duration-700 ease-out"
-                    strokeWidth="8"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference - (smsPct / 100) * circumference}
-                    strokeLinecap="round"
-                    fill="transparent"
-                  />
-                </svg>
-                <span className="absolute text-xs font-bold text-slate-800 dark:text-slate-200">
-                  {smsPct}%
-                </span>
-              </div>
-
-              <div className="flex-1 space-y-1">
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Απεσταλμένα</p>
-                <p className="text-base font-bold font-mono text-slate-900 dark:text-slate-100">
-                  {usedSms} <span className="text-xs font-normal text-slate-400">/ {totalSms} SMS</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-xs flex items-center justify-between">
-              <span className="text-slate-500 dark:text-slate-400">Διαθέσιμα:</span>
-              <span className="font-semibold font-mono text-blue-600 dark:text-blue-400">
-                {activePeriod.remaining_sms_messages ?? 0} SMS
-              </span>
-            </div>
+            <span className="text-xs text-slate-400 font-mono">
+              {periods.length} {periods.length === 1 ? 'περίοδος' : 'περίοδοι'}
+            </span>
           </div>
 
+          <div className="pt-2">
+            <div className="flex items-flex-end gap-3 min-h-[170px] pt-4 pb-2 px-2 items-end overflow-x-auto">
+              {periods.map((p, idx) => {
+                const uMin = p.used_minutes || 0;
+                const heightPct = Math.max(8, Math.round((uMin / maxPeriodMinutes) * 100));
+                const startDateFormatted = formatDate(p.starts_at);
+                const endDateFormatted = formatDate(p.ends_at);
+
+                return (
+                  <div key={p.billing_period_id || idx} className="flex-1 min-w-[120px] flex flex-col items-center gap-2 group">
+                    <span className="text-[11px] font-bold font-mono text-slate-700 dark:text-slate-300">
+                      {uMin.toFixed(1)}'
+                    </span>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800/80 rounded-t-lg h-28 flex items-end overflow-hidden p-1">
+                      <div 
+                        className="w-full bg-blue-500 dark:bg-blue-400 rounded-t transition-all duration-500 group-hover:bg-emerald-500"
+                        style={{ height: `${heightPct}%` }}
+                      />
+                    </div>
+                    {/* Ξεκάθαρες ημερομηνίες περιόδου σε μορφή ηη/μμ/ετος */}
+                    <div className="text-center px-1.5 py-1.5 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-lg w-full">
+                      <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                        {startDateFormatted}
+                      </p>
+                      <p className="text-[9px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
+                        έως {endDateFormatted}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
@@ -428,7 +489,7 @@ export default function BillingPage() {
                       {period.plan?.name || 'Βασικό Πλάνο'}
                     </td>
                     <td className="py-3.5 px-4 font-mono">
-                      {period.used_minutes ?? 0} / {period.total_included_minutes ?? 0} λεπτά
+                      {period.used_minutes?.toFixed(2) ?? 0} / {period.total_included_minutes ?? 0} λεπτά
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       {period.used_sms_messages ?? 0} / {(period.included_sms_messages ?? 0) + (period.extra_included_sms_messages ?? 0)} SMS

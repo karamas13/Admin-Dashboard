@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { api } from '@/services/api';
 import { useClinic } from '@/context/ClinicContext';
 
@@ -14,7 +14,7 @@ interface DashboardContextType {
   notificationPreferences: any;
   loadingTab: string | null;
   callbacksError: string | null;
-  fetchAppointments: (force?: boolean) => Promise<void>;
+  fetchAppointments: (params?: { startAt?: string; endAt?: string; force?: boolean }) => Promise<void>;
   fetchBilling: (force?: boolean) => Promise<void>;
   fetchCallbacks: (force?: boolean, clinicIdOverride?: string) => Promise<void>;
   updateCallback: (callbackId: string, newStatus: 'pending' | 'completed' | 'resolved', notes?: string) => Promise<void>;
@@ -38,29 +38,36 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [updates, setUpdates] = useState<any[]>([]);
   const [notificationPreferences, setNotificationPreferences] = useState<any>(null);
   const [callbacksError, setCallbacksError] = useState<string | null>(null);
-
-  const [fetchedClinics, setFetchedClinics] = useState<{ [key: string]: boolean }>({});
   const [loadingTab, setLoadingTab] = useState<string | null>(null);
 
+  // Χρήση useRef αντί για useState για το cache, ώστε να μην αλλάζουν τα references των συναρτήσεων
+  const fetchedClinicsRef = useRef<{ [key: string]: boolean }>({});
   const fetchingRef = useRef<{ [key: string]: boolean }>({});
 
   const hasData = useCallback((tab: string) => {
     if (!clinicId) return false;
-    return fetchedClinics[`${tab}_${clinicId}`] === true;
-  }, [fetchedClinics, clinicId]);
+    return fetchedClinicsRef.current[`${tab}_${clinicId}`] === true;
+  }, [clinicId]);
 
-  const fetchAppointments = useCallback(async (force = false) => {
+  const fetchAppointments = useCallback(async (params?: { startAt?: string; endAt?: string; force?: boolean }) => {
     if (!clinicId) return;
+    const force = params?.force ?? false;
     const lockKey = `appointments_${clinicId}`;
-    if (fetchingRef.current[lockKey]) return;
-    if (!force && hasData('appointments')) return;
+    
+    if (fetchingRef.current[lockKey] && !force) return;
+    if (!force && hasData('appointments') && !params?.startAt) return;
 
     try {
       fetchingRef.current[lockKey] = true;
       setLoadingTab('appointments');
-      const data = await api.getAppointments({ clinicId });
+      
+      const apiParams: any = { clinicId };
+      if (params?.startAt) apiParams.startAt = params.startAt;
+      if (params?.endAt) apiParams.endAt = params.endAt;
+
+      const data = await api.getAppointments(apiParams);
       setAppointments(Array.isArray(data) ? data : data?.appointments || []);
-      setFetchedClinics((prev) => ({ ...prev, [`appointments_${clinicId}`]: true }));
+      fetchedClinicsRef.current[`appointments_${clinicId}`] = true;
     } catch (err) {
       console.error('Failed to fetch appointments:', err);
     } finally {
@@ -80,7 +87,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setLoadingTab('billing');
       const data = await api.getBilling(clinicId);
       setBilling(data);
-      setFetchedClinics((prev) => ({ ...prev, [`billing_${clinicId}`]: true }));
+      fetchedClinicsRef.current[`billing_${clinicId}`] = true;
     } catch (err) {
       console.error('Failed to fetch billing:', err);
     } finally {
@@ -103,7 +110,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       const data = await api.getCallbacks(undefined, 100, 0, targetClinicId);
       const list = Array.isArray(data) ? data : data?.callbacks || data?.data || [];
       setCallbacks(list);
-      setFetchedClinics((prev) => ({ ...prev, [`callbacks_${targetClinicId}`]: true }));
+      fetchedClinicsRef.current[`callbacks_${targetClinicId}`] = true;
     } catch (err: any) {
       console.error('Failed to fetch callbacks:', err);
       setCallbacksError(err.message || 'Αποτυχία φόρτωσης αιτημάτων');
@@ -179,7 +186,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
       setClosures(rawList);
       if (!includeHistory) {
-        setFetchedClinics((prev) => ({ ...prev, [`closures_${clinicId}`]: true }));
+        fetchedClinicsRef.current[`closures_${clinicId}`] = true;
       }
     } catch (err) {
       console.error('Failed to fetch closures:', err);
@@ -200,7 +207,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setLoadingTab('settings');
       const data = await api.getSettings(clinicId);
       setSettings(data || {});
-      setFetchedClinics((prev) => ({ ...prev, [`settings_${clinicId}`]: true }));
+      fetchedClinicsRef.current[`settings_${clinicId}`] = true;
     } catch (err) {
       console.error('Failed to fetch settings:', err);
     } finally {
@@ -209,16 +216,8 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clinicId, hasData]);
 
-  useEffect(() => {
-    if (clinicId) {
-      fetchCallbacks();
-      fetchClosures();
-      fetchSettings();
-    }
-  }, [clinicId, fetchCallbacks, fetchClosures, fetchSettings]);
-
   const invalidateCache = useCallback(() => {
-    setFetchedClinics({});
+    fetchedClinicsRef.current = {};
     setSettings(null);
   }, []);
 

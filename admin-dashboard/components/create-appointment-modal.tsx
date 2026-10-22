@@ -101,7 +101,6 @@ export default function CreateAppointmentModal({
   const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
   const [selectedTime, setSelectedTime] = useState(initialTime || '09:00');
 
-  // Manual Duration Toggle & State (Χωρίς βελάκια)
   const [isManualDuration, setIsManualDuration] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState(30);
 
@@ -113,7 +112,6 @@ export default function CreateAppointmentModal({
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [nextBestSlot, setNextBestSlot] = useState<{ starts_at: string; ends_at: string } | null>(null);
 
-  // Fetch Clinic Settings & Day Appointments
   useEffect(() => {
     async function fetchData() {
       if (!activeClinicId || !date) return;
@@ -137,8 +135,7 @@ export default function CreateAppointmentModal({
 
             if (keys.length > 0) {
               parsedTypes = keys.map((key) => {
-                const rawPrep = preps[key] || '';
-                let parsedTitle = GREEK_LABEL_MAP[key] || key.replace(/_/g, ' ');
+                const parsedTitle = GREEK_LABEL_MAP[key] || key.replace(/_/g, ' ');
                 return {
                   code: key,
                   name: parsedTitle,
@@ -183,72 +180,73 @@ export default function CreateAppointmentModal({
     fetchData();
   }, [activeClinicId, date]);
 
-  // Compute exact time slots strictly within operating hours
+  // Υπολογισμός διαθέσιμων slots υποστηρίζοντας πολλαπλά διαστήματα (Σπαστό Ωράριο)
   const { availableTimeSlots, isClosedDay } = useMemo(() => {
     if (!date) return { availableTimeSlots: [], isClosedDay: false };
 
     const selectedDayObj = new Date(date + 'T00:00:00');
     const dayIndex = selectedDayObj.getDay();
+    const dayKey = String(dayIndex === 0 ? 7 : dayIndex);
     const dayName = DAY_KEYS[dayIndex];
     const dayShort = DAY_KEYS_SHORT[dayIndex];
 
-    let startHour = 9;
-    let startMin = 0;
-    let endHour = 17;
-    let endMin = 0;
-    let stepMinutes = 30;
+    let intervalsList: Array<{ start: string; end: string }> = [];
     let isClosed = false;
 
     if (settingsData) {
       const scheduleConfig =
-        settingsData.operating_hours ||
-        settingsData.working_hours ||
-        settingsData.operating_hours_json ||
         settingsData.working_hours_json ||
+        settingsData.operating_hours_json ||
+        settingsData.working_hours ||
+        settingsData.operating_hours ||
         settingsData.schedule;
 
       if (scheduleConfig) {
-        const daySchedule = scheduleConfig[dayName] || scheduleConfig[dayShort] || scheduleConfig[dayIndex];
+        const daySchedule = scheduleConfig[dayKey] || scheduleConfig[String(dayIndex)] || scheduleConfig[dayName] || scheduleConfig[dayShort];
+        
         if (daySchedule) {
-          if (daySchedule.closed === true || daySchedule.is_closed === true || daySchedule.active === false) {
-            isClosed = true;
-          }
-          const rawStart = daySchedule.start || daySchedule.starts_at || daySchedule.open || daySchedule.from;
-          const rawEnd = daySchedule.end || daySchedule.ends_at || daySchedule.close || daySchedule.to;
-
-          if (rawStart) {
-            const parts = String(rawStart).split(':').map(Number);
-            if (!isNaN(parts[0])) startHour = parts[0];
-            if (!isNaN(parts[1])) startMin = parts[1];
-          }
-          if (rawEnd) {
-            const parts = String(rawEnd).split(':').map(Number);
-            if (!isNaN(parts[0])) endHour = parts[0];
-            if (!isNaN(parts[1])) endMin = parts[1];
+          if (Array.isArray(daySchedule)) {
+            intervalsList = daySchedule;
+          } else {
+            if (daySchedule.closed === true || daySchedule.is_closed === true || daySchedule.active === false) {
+              isClosed = true;
+            }
+            if (Array.isArray(daySchedule.slots)) {
+              intervalsList = daySchedule.slots;
+            } else if (daySchedule.start && daySchedule.end) {
+              intervalsList = [{ start: daySchedule.start, end: daySchedule.end }];
+            }
           }
         }
       }
-
-      if (settingsData.slot_step_minutes || settingsData.slot_interval) {
-        const step = Number(settingsData.slot_step_minutes || settingsData.slot_interval);
-        if (step > 0 && step <= 60) stepMinutes = step;
-      }
     }
 
-    if (isClosed) return { availableTimeSlots: [], isClosedDay: true };
+    if (isClosed || intervalsList.length === 0) return { availableTimeSlots: [], isClosedDay: isClosed || intervalsList.length === 0 };
+
+    let stepMinutes = 30;
+    if (settingsData?.slot_step_minutes || settingsData?.slot_interval) {
+      const step = Number(settingsData.slot_step_minutes || settingsData.slot_interval);
+      if (step > 0 && step <= 60) stepMinutes = step;
+    }
 
     const rawSlots: string[] = [];
-    let currentMin = startHour * 60 + startMin;
-    const endMinLimit = endHour * 60 + endMin;
 
-    while (currentMin + durationMinutes <= endMinLimit) {
-      const hh = String(Math.floor(currentMin / 60)).padStart(2, '0');
-      const mm = String(currentMin % 60).padStart(2, '0');
-      rawSlots.push(`${hh}:${mm}`);
-      currentMin += stepMinutes;
-    }
+    intervalsList.forEach((interval) => {
+      if (!interval.start || !interval.end) return;
+      const [sh, sm] = interval.start.split(':').map(Number);
+      const [eh, em] = interval.end.split(':').map(Number);
 
-    // Φιλτράρισμα ωρών που επικαλύπτονται με ήδη κλεισμένα ραντεβού
+      let currentMin = sh * 60 + sm;
+      const endMinLimit = eh * 60 + em;
+
+      while (currentMin + durationMinutes <= endMinLimit) {
+        const hh = String(Math.floor(currentMin / 60)).padStart(2, '0');
+        const mm = String(currentMin % 60).padStart(2, '0');
+        rawSlots.push(`${hh}:${mm}`);
+        currentMin += stepMinutes;
+      }
+    });
+
     const freeSlots = rawSlots.filter((slotStr) => {
       const [h, m] = slotStr.split(':').map(Number);
       const slotStartMs = new Date(date + 'T' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00').getTime();
@@ -264,7 +262,6 @@ export default function CreateAppointmentModal({
     return { availableTimeSlots: freeSlots, isClosedDay: false };
   }, [settingsData, date, bookedIntervals, durationMinutes]);
 
-  // Sync selected time with available slots if needed (χωρίς loops)
   useEffect(() => {
     if (availableTimeSlots.length > 0 && !availableTimeSlots.includes(selectedTime)) {
       setSelectedTime(availableTimeSlots[0]);
@@ -399,7 +396,6 @@ export default function CreateAppointmentModal({
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
       <div className="bg-slate-900 text-slate-100 rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-800 space-y-5 max-h-[90vh] overflow-y-auto">
         
-        {/* Header */}
         <div className="flex justify-between items-center pb-2 border-b border-slate-800">
           <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
             <ClockIcon className="w-5 h-5 text-blue-500 shrink-0" />
@@ -414,7 +410,6 @@ export default function CreateAppointmentModal({
           </button>
         </div>
 
-        {/* Availability Error Banner & Automated Next Slot Suggestion */}
         {availabilityError && (
           <div className="p-4 bg-amber-950/50 border border-amber-800/80 text-amber-200 text-xs rounded-2xl space-y-3 shadow-sm">
             <div className="flex items-start gap-2">
@@ -450,10 +445,8 @@ export default function CreateAppointmentModal({
           </div>
         )}
 
-        {/* Form Grid */}
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           
-          {/* Row 1: Patient Name & Phone */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block font-semibold text-slate-300 mb-1">Ονοματεπώνυμο Πελάτη</label>
@@ -480,7 +473,6 @@ export default function CreateAppointmentModal({
             </div>
           </div>
 
-          {/* Row 2: Appointment Type / Manual Duration & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <div className="flex justify-between items-center mb-1">
@@ -538,7 +530,6 @@ export default function CreateAppointmentModal({
             </div>
           </div>
 
-          {/* Row 3: Time Slot Selection */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="font-semibold text-slate-300">Ώρα Έναρξης</label>
@@ -572,7 +563,6 @@ export default function CreateAppointmentModal({
             )}
           </div>
 
-          {/* Buttons Footer */}
           <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
             <button
               type="button"

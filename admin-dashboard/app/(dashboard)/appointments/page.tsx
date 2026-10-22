@@ -123,18 +123,54 @@ export default function AppointmentsPage() {
 
   const daysOfWeek = useMemo(() => getDaysOfWeek(currentDate), [currentDate, getDaysOfWeek]);
 
-  // Αρχική φόρτωση ραντεβού & ρυθμίσεων χωρίς infinite loop
-  useEffect(() => {
-    if (selectedClinic?.id) {
-      fetchSettings();
-      fetchAppointments();
-    }
-  }, [selectedClinic?.id, fetchSettings, fetchAppointments]);
+  // Σταθερό string κλειδί ημερομηνίας για χρήση στα dependencies
+  const dateStringKey = formatDateString(currentDate);
 
-  // Υπολογισμός δυναμικών slots
+  // Συνάρτηση φόρτωσης ραντεβού για το τρέχον active εύρος
+  const loadAppointmentsForCurrentView = useCallback((force = false) => {
+    const anchor = new Date(currentDate);
+    let start: Date;
+    let end: Date;
+
+    if (viewMode === 'day') {
+      start = new Date(anchor);
+      start.setHours(0, 0, 0, 0);
+      end = new Date(anchor);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      const currentDay = anchor.getDay();
+      const dayIndex = currentDay === 0 ? 6 : currentDay - 1;
+      
+      const monday = new Date(anchor);
+      monday.setDate(anchor.getDate() - dayIndex);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+
+      start = monday;
+      end = sunday;
+    }
+
+    fetchAppointments({
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+      force
+    });
+  }, [currentDate, viewMode, fetchAppointments]);
+
+  // Ελεγχόμενη φόρτωση: Χρησιμοποιεί το dateStringKey αντί για το αντικείμενο currentDate αποτρέποντας τα loops
   useEffect(() => {
-    const activeDays = Object.values(workingHours).flat();
-    if (activeDays.length === 0) {
+    if (!selectedClinic?.id) return;
+    fetchSettings();
+    loadAppointmentsForCurrentView(true);
+  }, [selectedClinic?.id, dateStringKey, viewMode]);
+
+  // Υπολογισμός δυναμικών slots (υποστήριξη σπαστού ωραρίου)
+  useEffect(() => {
+    const allSlots = Object.values(workingHours).flat() as Array<{ start: string; end: string }>;
+    if (allSlots.length === 0) {
       setDynamicTimeSlots(DEFAULT_TIME_SLOTS);
       return;
     }
@@ -142,7 +178,7 @@ export default function AppointmentsPage() {
     let minStartMinutes = 24 * 60;
     let maxEndMinutes = 0;
 
-    activeDays.forEach((slot: any) => {
+    allSlots.forEach((slot) => {
       if (!slot.start || !slot.end) return;
       const [sh, sm] = slot.start.split(':').map(Number);
       const [eh, em] = slot.end.split(':').map(Number);
@@ -174,10 +210,10 @@ export default function AppointmentsPage() {
 
   const isTimeWithinWorkingHours = (targetDate: Date, timeStr: string): boolean => {
     const dayNum = targetDate.getDay(); 
-    const dayKey = String(dayNum); 
+    const dayKey = String(dayNum === 0 ? 7 : dayNum); 
 
-    const daySlots: any = workingHours[dayKey];
-    if (!daySlots || daySlots.length === 0) return false;
+    const daySlots: any = workingHours[dayKey] || workingHours[String(dayNum)];
+    if (!daySlots || !Array.isArray(daySlots) || daySlots.length === 0) return false;
 
     const [h, m] = timeStr.split(':').map(Number);
     const timeVal = h * 60 + m;
@@ -253,7 +289,7 @@ export default function AppointmentsPage() {
   };
 
   const handleOpenCreate = (dateStr?: string, timeStr?: string) => {
-    const targetDate = dateStr || formatDateString(currentDate);
+    const targetDate = dateStr || dateStringKey;
     const targetTime = timeStr || '09:00';
     
     setSelectedSlot({ date: targetDate, time: targetTime });
@@ -266,17 +302,15 @@ export default function AppointmentsPage() {
     [appointmentsList]
   );
 
-  const currentDateIso = formatDateString(currentDate);
-
   const stats = useMemo(() => {
-    const activeToday = activeAppointments.filter((a: any) => a.start_at && a.start_at.includes(currentDateIso)).length;
+    const activeToday = activeAppointments.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey)).length;
     const workingSlotCount = dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length;
     const openSlots = Math.max(0, workingSlotCount - activeToday);
-    const cancelledToday = appointmentsList.filter((a: any) => a.start_at && a.start_at.includes(currentDateIso) && a.status === 'cancelled').length;
+    const cancelledToday = appointmentsList.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey) && a.status === 'cancelled').length;
     const rescheduledTotal = appointmentsList.filter((a: any) => a.status === 'rescheduled').length;
 
     return { activeToday, openSlots, cancelledToday, rescheduledTotal };
-  }, [activeAppointments, appointmentsList, currentDate, currentDateIso, dynamicTimeSlots, workingHours]);
+  }, [activeAppointments, appointmentsList, currentDate, dateStringKey, dynamicTimeSlots, workingHours]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 min-h-screen text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
@@ -285,9 +319,7 @@ export default function AppointmentsPage() {
       <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 p-5 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           
-          {/* Controls: View Mode & Date Stepper */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* View Mode Toggle */}
             <div className="inline-flex p-1 bg-slate-100 dark:bg-[#090D14] rounded-lg border border-slate-200 dark:border-slate-800/80">
               <button 
                 onClick={() => setViewMode('day')}
@@ -311,7 +343,6 @@ export default function AppointmentsPage() {
               </button>
             </div>
 
-            {/* Date Stepper */}
             <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#090D14] overflow-hidden">
               <button 
                 onClick={handlePrev}
@@ -335,7 +366,6 @@ export default function AppointmentsPage() {
               </button>
             </div>
 
-            {/* Date Range Label */}
             <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 px-1">
               <CalendarIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span className="capitalize">
@@ -347,7 +377,6 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          {/* New Appointment Primary Button */}
           <button 
             onClick={() => handleOpenCreate()}
             className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-lg transition-all shadow-sm cursor-pointer"
@@ -357,7 +386,6 @@ export default function AppointmentsPage() {
           </button>
         </div>
 
-        {/* Operational Metrics Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/80">
           <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-lg bg-slate-50 dark:bg-[#090D14] border border-slate-100 dark:border-slate-800/80">
             <div className="p-2 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
@@ -401,19 +429,16 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Main Calendar View Container */}
       {loadingTab === 'appointments' ? (
         <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 p-12 text-center text-xs text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center gap-3">
           <ArrowPathIcon className="w-5 h-5 animate-spin text-slate-700 dark:text-emerald-400" />
           <span>Φόρτωση προγράμματος ραντεβού...</span>
         </div>
       ) : viewMode === 'day' ? (
-        /* Day View Layout */
         <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60">
           {dynamicTimeSlots.map((time) => {
-            const targetDayStr = formatDateString(currentDate);
             const isOpenSlot = isTimeWithinWorkingHours(currentDate, time);
-            const appt = activeAppointments.find((a: any) => isSlotMatching(a.start_at, targetDayStr, time));
+            const appt = activeAppointments.find((a: any) => isSlotMatching(a.start_at, dateStringKey, time));
             const statusCfg = appt ? (STATUS_CONFIG[appt.status as AppointmentStatus] || STATUS_CONFIG.booked) : null;
 
             return (
@@ -425,7 +450,6 @@ export default function AppointmentsPage() {
                     : 'hover:bg-slate-50 dark:hover:bg-slate-800/20'
                 }`}
               >
-                {/* Time Column */}
                 <div className={`w-20 sm:w-24 px-3 py-3.5 text-xs font-mono font-semibold border-r flex items-center justify-center shrink-0 ${
                   !isOpenSlot && !appt 
                     ? 'text-slate-400 dark:text-slate-600 bg-slate-100/50 dark:bg-[#090D14] border-slate-200 dark:border-slate-800/80' 
@@ -434,7 +458,6 @@ export default function AppointmentsPage() {
                   {time}
                 </div>
 
-                {/* Slot Action Area */}
                 <div className="flex-1 p-2 min-h-[52px] flex items-center">
                   {appt ? (
                     <div 
@@ -463,7 +486,7 @@ export default function AppointmentsPage() {
                     </div>
                   ) : isOpenSlot ? (
                     <button 
-                      onClick={() => handleOpenCreate(targetDayStr, time)}
+                      onClick={() => handleOpenCreate(dateStringKey, time)}
                       className="w-full text-left px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-900 dark:text-slate-500 dark:hover:text-emerald-400 border border-dashed border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-emerald-500/40 hover:bg-slate-50 dark:hover:bg-emerald-500/5 rounded-lg transition-all flex items-center gap-2 cursor-pointer"
                     >
                       <PlusIcon className="w-3.5 h-3.5" />
@@ -483,18 +506,17 @@ export default function AppointmentsPage() {
           })}
         </div>
       ) : (
-        /* Week View Grid */
         <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-xl overflow-x-auto">
           <div className="min-w-[700px]">
-            {/* Grid Header */}
             <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D121C]">
               <div className="p-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-500 border-r border-slate-200 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-[#0D121C] z-10">
                 Ώρα
               </div>
               {daysOfWeek.map((day) => {
                 const dayNum = day.dateObject.getDay();
-                const dayKey = String(dayNum);
-                const isDayClosed = !workingHours[dayKey] || workingHours[dayKey].length === 0;
+                const dayKey = String(dayNum === 0 ? 7 : dayNum);
+                const daySlots = workingHours[dayKey] || workingHours[String(dayNum)];
+                const isDayClosed = !daySlots || !Array.isArray(daySlots) || daySlots.length === 0;
 
                 return (
                   <div 
@@ -517,16 +539,13 @@ export default function AppointmentsPage() {
               })}
             </div>
 
-            {/* Grid Body */}
             <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {dynamicTimeSlots.map((time) => (
                 <div key={time} className="grid grid-cols-8">
-                  {/* Time Axis Column */}
                   <div className="p-2 text-center text-xs font-mono font-medium text-slate-500 bg-slate-50 dark:bg-[#0D121C] border-r border-slate-200 dark:border-slate-800 flex items-center justify-center sticky left-0 z-10">
                     {time}
                   </div>
 
-                  {/* Day Slots */}
                   {daysOfWeek.map((day) => {
                     const isOpenSlot = isTimeWithinWorkingHours(day.dateObject, time);
                     const appt = activeAppointments.find((a: any) => isSlotMatching(a.start_at, day.isoString, time));
@@ -537,7 +556,7 @@ export default function AppointmentsPage() {
                         key={day.name} 
                         className={`p-1 min-h-14 border-r border-slate-100 dark:border-slate-800/80 last:border-0 flex items-center transition-colors ${
                           !isOpenSlot && !appt 
-                            ? 'bg-red-100 dark:bg-[#090D14]/80' 
+                            ? 'bg-slate-50/50 dark:bg-[#090D14]/60' 
                             : 'bg-white dark:bg-[#101622]'
                         }`}
                       >
@@ -573,16 +592,14 @@ export default function AppointmentsPage() {
         </div>
       )}
 
-      {/* Appointment Detail Sidebar Panel */}
       {selectedAppointment && (
         <AppointmentDetailsPanel 
           appointment={selectedAppointment} 
           onClose={() => setSelectedAppointment(null)} 
-          onStateChange={() => fetchAppointments(true)}
+          onStateChange={() => loadAppointmentsForCurrentView(true)}
         />        
       )}
 
-      {/* Create Appointment Modal */}
       {isCreateOpen && (
         <CreateAppointmentModal 
           initialDate={selectedSlot?.date}
@@ -594,7 +611,7 @@ export default function AppointmentsPage() {
           onSuccess={() => {
             setIsCreateOpen(false);
             setSelectedSlot(null);
-            fetchAppointments(true);
+            loadAppointmentsForCurrentView(true); // Ανανεώνει άμεσα το UI διατηρώντας το active range
           }} 
         />
       )}

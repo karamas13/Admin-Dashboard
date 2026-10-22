@@ -13,7 +13,8 @@ import {
   XCircleIcon,
   ChatBubbleBottomCenterTextIcon,
   XMarkIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { useClinic } from '@/context/ClinicContext';
 import { useDashboard } from '@/context/DashboardContext';
@@ -28,6 +29,9 @@ const getReasonLabel = (code?: string) => {
     urgent_medical: 'Επείγον Ιατρικό Θέμα',
     failed_notification: 'Αποτυχία Ειδοποίησης',
     patient_requested_callback: 'Αίτημα Ασθενούς για Επανακλήση',
+    water_leak: 'Διαρροή Νερού',
+    repair: 'Επισκευή',
+    customer_requested_callback: 'Αίτημα Πελάτη για Επανακλήση'
   };
   return map[code || ''] || code || 'Αίτημα από Ψηφιακό Βοηθό';
 };
@@ -46,8 +50,10 @@ export default function CallbacksPage() {
 
   const [localCallbacks, setLocalCallbacks] = useState<any[]>([]);
 
+  // States for Callback Management & Staff Notes Modal
   const [selectedCallback, setSelectedCallback] = useState<any | null>(null);
-  const [modalStatus, setModalStatus] = useState<string>('completed');
+  const [modalStatus, setModalStatus] = useState<string>('pending');
+  const [modalStaffNotes, setModalStaffNotes] = useState<string>('');
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -65,7 +71,8 @@ export default function CallbacksPage() {
 
   useEffect(() => {
     if (selectedCallback) {
-      setModalStatus(selectedCallback.status || 'completed');
+      setModalStatus(selectedCallback.status || 'pending');
+      setModalStaffNotes(selectedCallback.staff_notes || '');
       setSuccessMsg('');
     }
   }, [selectedCallback]);
@@ -75,6 +82,7 @@ export default function CallbacksPage() {
     return st === 'completed' || st === 'resolved' || st === 'done' || st === 'closed';
   };
 
+  // Full Update via Modal (Supports status & staff_notes)
   const handleUpdateCallbackFull = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCallback || isSubmittingModal) return;
@@ -86,18 +94,19 @@ export default function CallbacksPage() {
       setError(null);
       setSuccessMsg('');
 
-      await api.updateCallback(
-        cbId,
-        { status: modalStatus },
-        selectedClinic?.id
-      );
+      const payload = {
+        status: modalStatus,
+        staff_notes: modalStaffNotes
+      };
+
+      await api.updateCallback(cbId, payload, selectedClinic?.id);
 
       setLocalCallbacks(prev => prev.map(cb => {
         const id = cb.callback_id || cb.id;
-        return id === cbId ? { ...cb, status: modalStatus } : cb;
+        return id === cbId ? { ...cb, status: modalStatus, staff_notes: modalStaffNotes } : cb;
       }));
 
-      setSuccessMsg('Η κατάσταση ενημερώθηκε με επιτυχία!');
+      setSuccessMsg('Η ενημέρωση και οι σημειώσεις αποθηκεύτηκαν με επιτυχία!');
       await fetchCallbacks(true);
 
       setTimeout(() => {
@@ -110,6 +119,7 @@ export default function CallbacksPage() {
     }
   };
 
+  // Quick status change / Revert to pending or completed
   const handleStatusChangeQuick = async (cb: any, newStatus: string) => {
     if (isReadOnly || updatingId) return;
 
@@ -145,7 +155,9 @@ export default function CallbacksPage() {
       rawUrgency === 'high' || 
       rawUrgency === 'urgent' || 
       rawUrgency === 'emergency' || 
-      cb.callback_reason_code === 'urgent_medical';
+      cb.callback_reason_code === 'urgent_medical' ||
+      cb.callback_reason_code === 'water_leak' ||
+      cb.callback_reason_code === 'repair';
 
     const isUnacknowledged = !cb.acknowledged_at && !isCompletedStatus(cb);
     const isFailedNotification = cb.notification_status === 'failed' || cb.failed_notification === true;
@@ -236,6 +248,7 @@ export default function CallbacksPage() {
               const isItemUpdating = updatingId === cbId;
               const { isUrgent, isUnacknowledged, isFailedNotification } = getCallbackFlags(cb);
               const displayNote = cb.notes || cb.work_summary;
+              const staffNotes = cb.staff_notes;
 
               return (
                 <div
@@ -271,14 +284,20 @@ export default function CallbacksPage() {
                     </span>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
                       {getReasonLabel(reason)}
                     </p>
 
                     {displayNote && (
                       <p className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">Σημείωση / Περιγραφή:</span> {displayNote}
+                        <span className="font-bold text-slate-800 dark:text-slate-200">AI Περιγραφή / Σημείωση:</span> {displayNote}
+                      </p>
+                    )}
+
+                    {staffNotes && (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
+                        <span className="font-bold">Σημείωση Προσωπικού:</span> {staffNotes}
                       </p>
                     )}
                   </div>
@@ -307,7 +326,7 @@ export default function CallbacksPage() {
                       className="px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-all shadow-xs cursor-pointer"
                     >
                       <PencilSquareIcon className="w-4 h-4 text-emerald-600" />
-                      <span>Προβολή & Κατάσταση</span>
+                      <span>Σημειώσεις & Κατάσταση</span>
                     </button>
 
                     {!isDone ? (
@@ -402,6 +421,7 @@ export default function CallbacksPage() {
 
       {activeTab === 'completed' && renderSection(completedCallbacks, 'Ολοκληρωμένα Αιτήματα')}
 
+      {/* FULL CALLBACK MANAGEMENT MODAL WITH STAFF NOTES */}
       {selectedCallback && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="bg-white dark:bg-[#101622] rounded-3xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -434,15 +454,33 @@ export default function CallbacksPage() {
 
             <form onSubmit={handleUpdateCallbackFull} className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
               
+              {/* Read-Only AI Work Summary / Notes */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Σημειώσεις / Περιγραφή Εργασίας (Από AI Assistant)
+                  Περιγραφή από AI Assistant (Read-only)
                 </label>
-                <div className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 min-h-[80px] whitespace-pre-wrap">
+                <div className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 min-h-[60px] whitespace-pre-wrap">
                   {selectedCallback.notes || selectedCallback.work_summary || 'Δεν υπάρχουν διαθέσιμες σημειώσεις.'}
                 </div>
               </div>
 
+              {/* Editable Staff Notes Field (`staff_notes`) */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <DocumentTextIcon className="w-4 h-4 text-emerald-600" />
+                  <span>Σημειώσεις Προσωπικού (Staff Notes)</span>
+                </label>
+                <textarea
+                  value={modalStaffNotes}
+                  onChange={(e) => setModalStaffNotes(e.target.value)}
+                  rows={3}
+                  maxLength={4000}
+                  placeholder="Προσθέστε σχόλια ή ενέργειες προσωπικού εδώ..."
+                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              {/* Status Selector */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Κατάσταση Αιτήματος (Status)
@@ -453,10 +491,8 @@ export default function CallbacksPage() {
                   className="w-full h-11 px-3.5 text-xs font-medium rounded-2xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
                 >
                   <option value="pending">Σε εκκρεμότητα (Pending)</option>
-                  <option value="in_progress">Σε εξέλιξη (In Progress)</option>
+                  <option value="created">Δημιουργήθηκε / Εκκρεμεί (Created)</option>
                   <option value="completed">Ολοκληρώθηκε (Completed)</option>
-                  <option value="resolved">Επιλύθηκε (Resolved)</option>
-                  <option value="cancelled">Ακυρώθηκε (Cancelled)</option>
                 </select>
               </div>
 
@@ -474,7 +510,7 @@ export default function CallbacksPage() {
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
                 >
                   {isSubmittingModal && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
-                  <span>Αποθήκευση Κατάστασης</span>
+                  <span>Αποθήκευση Αλλαγών</span>
                 </button>
               </div>
 

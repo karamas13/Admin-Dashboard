@@ -149,8 +149,46 @@ export default function ScheduleExceptionsPage() {
     cancelNavigation,
   } = useUnsavedChangesWarning(isDirty);
 
+  // Helper για έλεγχο επικάλυψης (Overlap Validation) ανάμεσα στα slots μιας ημέρας
+  const validateSlotsOverlap = (slots: Array<{ start: string; end: string }>) => {
+    const toMinutes = (timeStr: string) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    for (let i = 0; i < slots.length; i++) {
+      const startI = toMinutes(slots[i].start);
+      const endI = toMinutes(slots[i].end);
+
+      if (startI >= endI) {
+        return 'Η ώρα έναρξης πρέπει να είναι προγενέστερη της λήξης σε κάθε διάστημα.';
+      }
+
+      for (let j = i + 1; j < slots.length; j++) {
+        const startJ = toMinutes(slots[j].start);
+        const endJ = toMinutes(slots[j].end);
+
+        // Έλεγχος αν επικαλύπτονται τα διαστήματα [startI, endI] και [startJ, endJ]
+        if (Math.max(startI, startJ) < Math.min(endI, endJ)) {
+          return 'Τα χρονικά διαστήματα (σπαστό ωράριο) δεν επιτρέπεται να επικαλύπτονται.';
+        }
+      }
+    }
+    return null;
+  };
+
   const handleSaveWeeklyHours = async () => {
     if (isActionDisabled || isSavingHours) return;
+
+    // Εκτέλεση validation για όλες τις ημέρες πριν την αποθήκευση
+    for (const day of DAYS_OF_WEEK) {
+      const slots = workingHours[day.id] || [];
+      const error = validateSlotsOverlap(slots);
+      if (error) {
+        setErrorMsg(`[${day.label}]: ${error}`);
+        return;
+      }
+    }
 
     try {
       setIsSavingHours(true);
@@ -166,7 +204,7 @@ export default function ScheduleExceptionsPage() {
       await api.updateSettings(payload, selectedClinic?.id);
       await fetchSettingsRef.current(true);
       setInitialWorkingHours(workingHours);
-      setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
+      setSuccessMsg('Το εβδομαδιαίο σπαστό ωράριο αποθηκεύτηκε με επιτυχία!');
     } catch (err: any) {
       console.error('Error saving weekly hours:', err);
       setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
@@ -339,7 +377,7 @@ export default function ScheduleExceptionsPage() {
             )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Ρύθμιση τακτικού εβδομαδιαίου προγράμματος και διαχείριση απουσιών ή έκτακτων αργιών για την επιχείρηση{' '}
+            Ρύθμιση τακτικού εβδομαδιαίου προγράμματος (συμπεριλαμβανομένου μόνιμου σπαστού ωραρίου) και διαχείριση απουσιών ή έκτακτων αργιών για την επιχείρηση{' '}
             <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
           </p>
         </div>
@@ -358,17 +396,17 @@ export default function ScheduleExceptionsPage() {
         </div>
       )}
 
-      {/* SECTION 1: WEEKLY HOURS */}
+      {/* SECTION 1: WEEKLY HOURS (ΜΟΝΙΜΟ ΣΠΑΣΤΟ ΩΡΑΡΙΟ) */}
       <div className="bg-white dark:bg-[#101622] rounded-xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0D121C]">
           <div className="flex items-center gap-2.5">
             <ClockIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div>
               <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm">
-                1. Τακτικό Εβδομαδιαίο Ωράριο
+                1. Τακτικό Εβδομαδιαίο & Σπαστό Ωράριο
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                Ορισμός ημερών και ωρών τακτικής λειτουργίας της επιχείρησης.
+                Ορισμός ημερών και πολλαπλών χρονικών διαστημάτων λειτουργίας (π.χ. 11:00-12:00 και 17:00-18:00).
               </p>
             </div>
           </div>
@@ -394,85 +432,127 @@ export default function ScheduleExceptionsPage() {
           </button>
         </div>
 
-        <div className="p-4 sm:p-5 space-y-2">
+        <div className="p-4 sm:p-5 space-y-4">
           {DAYS_OF_WEEK.map((day) => {
             const slots = workingHours[day.id] || [];
             const isOpen = slots.length > 0;
-            const currentSlot = slots[0] || { start: '09:00', end: '17:00' };
 
             return (
               <div
                 key={day.id}
-                className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border transition-all gap-3 ${
+                className={`p-3.5 rounded-xl border transition-all space-y-3 ${
                   isOpen
                     ? 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800/80'
                     : 'bg-white dark:bg-[#101622] border-slate-100 dark:border-slate-800/50'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id={`day_check_${day.id}`}
-                    checked={isOpen}
-                    disabled={isActionDisabled}
-                    onChange={(e) => {
-                      const updated = { ...workingHours };
-                      updated[day.id] = e.target.checked ? [{ start: '09:00', end: '17:00' }] : [];
-                      setWorkingHours(updated);
-                    }}
-                    className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer focus:ring-emerald-500"
-                  />
-                  <label htmlFor={`day_check_${day.id}`} className="font-semibold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-24">
-                    {day.label}
-                  </label>
-                  <span
-                    className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
-                      isOpen
-                        ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                    }`}
-                  >
-                    {isOpen ? 'Σε λειτουργία' : 'Εκτός λειτουργίας'}
-                  </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id={`day_check_${day.id}`}
+                      checked={isOpen}
+                      disabled={isActionDisabled}
+                      onChange={(e) => {
+                        const updated = { ...workingHours };
+                        updated[day.id] = e.target.checked ? [{ start: '09:00', end: '17:00' }] : [];
+                        setWorkingHours(updated);
+                      }}
+                      className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer focus:ring-emerald-500"
+                    />
+                    <label htmlFor={`day_check_${day.id}`} className="font-semibold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-24">
+                      {day.label}
+                    </label>
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+                        isOpen
+                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      {isOpen ? `${slots.length} ${slots.length === 1 ? 'Διάστημα' : 'Διαστήματα'}` : 'Εκτός λειτουργίας'}
+                    </span>
+                  </div>
+
+                  {isOpen && !isActionDisabled && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = { ...workingHours };
+                        // Προσθήκη νέου default slot χωρίς επικάλυψη (π.χ. 17:00 - 19:00)
+                        updated[day.id] = [...slots, { start: '17:00', end: '19:00' }];
+                        setWorkingHours(updated);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer self-start sm:self-auto"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Προσθήκη διαστήματος</span>
+                    </button>
+                  )}
                 </div>
 
                 {isOpen ? (
-                  <div className="flex items-center gap-2 text-xs font-medium pl-7 sm:pl-0">
-                    <span className="text-slate-500 dark:text-slate-400 text-[11px]">Από:</span>
-                    <select
-                      value={currentSlot.start}
-                      disabled={isActionDisabled}
-                      onChange={(e) => {
-                        const updated = { ...workingHours };
-                        updated[day.id] = [{ start: e.target.value, end: currentSlot.end }];
-                        setWorkingHours(updated);
-                      }}
-                      className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
-                    >
-                      {TIME_OPTIONS.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
+                  <div className="space-y-2 pl-0 sm:pl-7 pt-1">
+                    {slots.map((slot, index) => (
+                      <div key={index} className="flex items-center gap-2 text-xs font-medium flex-wrap">
+                        <span className="text-slate-400 text-[11px] font-mono">#{index + 1}</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Από:</span>
+                        <select
+                          value={slot.start}
+                          disabled={isActionDisabled}
+                          onChange={(e) => {
+                            const updated = { ...workingHours };
+                            const newSlots = [...slots];
+                            newSlots[index] = { ...newSlots[index], start: e.target.value };
+                            updated[day.id] = newSlots;
+                            setWorkingHours(updated);
+                          }}
+                          className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
+                        >
+                          {TIME_OPTIONS.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
 
-                    <span className="text-slate-500 dark:text-slate-400 text-[11px] px-1">έως:</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px] px-1">έως:</span>
 
-                    <select
-                      value={currentSlot.end}
-                      disabled={isActionDisabled}
-                      onChange={(e) => {
-                        const updated = { ...workingHours };
-                        updated[day.id] = [{ start: currentSlot.start, end: e.target.value }];
-                        setWorkingHours(updated);
-                      }}
-                      className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
-                    >
-                      {TIME_OPTIONS.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
+                        <select
+                          value={slot.end}
+                          disabled={isActionDisabled}
+                          onChange={(e) => {
+                            const updated = { ...workingHours };
+                            const newSlots = [...slots];
+                            newSlots[index] = { ...newSlots[index], end: e.target.value };
+                            updated[day.id] = newSlots;
+                            setWorkingHours(updated);
+                          }}
+                          className="px-2.5 py-1.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
+                        >
+                          {TIME_OPTIONS.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+
+                        {slots.length > 1 && !isActionDisabled && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...workingHours };
+                              updated[day.id] = slots.filter((_, i) => i !== index);
+                              setWorkingHours(updated);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer ml-1"
+                            title="Διαγραφή διαστήματος"
+                            aria-label="Διαγραφή διαστήματος"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 ) : (
-                  <span className="text-slate-400 dark:text-slate-500 text-xs pl-7 sm:pl-0">
+                  <span className="text-slate-400 dark:text-slate-500 text-xs pl-0 sm:pl-7 block">
                     Κλειστά
                   </span>
                 )}
@@ -685,7 +765,6 @@ export default function ScheduleExceptionsPage() {
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
             
-            {/* Modal Header */}
             <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800/80 pb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
@@ -708,7 +787,6 @@ export default function ScheduleExceptionsPage() {
 
             <form onSubmit={handleCreateException} className="space-y-5">
               
-              {/* STEP 1: CLEAR INTUITIVE TABS (CLOSED vs EXTRA HOURS) */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   1. Τι θα συμβεί αυτές τις ημέρες;
@@ -760,7 +838,6 @@ export default function ScheduleExceptionsPage() {
                 </div>
               </div>
 
-              {/* STEP 2: REASON SELECTION */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   2. Αιτιολογία
@@ -788,7 +865,6 @@ export default function ScheduleExceptionsPage() {
                 </select>
               </div>
 
-              {/* STEP 3: DATES SELECTION */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   3. Χρονικό Διάστημα
@@ -801,7 +877,7 @@ export default function ScheduleExceptionsPage() {
                       value={startDate}
                       onChange={(e) => {
                         setStartDate(e.target.value);
-                        if (!endDate) setEndDate(e.target.value); // Auto fill end date for convenience
+                        if (!endDate) setEndDate(e.target.value);
                       }}
                       required
                       className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
@@ -821,7 +897,6 @@ export default function ScheduleExceptionsPage() {
                 </div>
               </div>
 
-              {/* STEP 4: DURATION TOGGLE (ALL DAY vs CUSTOM HOURS) */}
               <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -873,7 +948,6 @@ export default function ScheduleExceptionsPage() {
                 )}
               </div>
 
-              {/* OPTIONAL NOTE */}
               <div className="space-y-1.5">
                 <button
                   type="button"
@@ -895,7 +969,6 @@ export default function ScheduleExceptionsPage() {
                 )}
               </div>
 
-              {/* MODAL FOOTER BUTTONS */}
               <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800/80">
                 <button
                   type="button"
