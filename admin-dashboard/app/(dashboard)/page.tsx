@@ -159,13 +159,13 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
       
       {/* Top Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 sm:pb-5 border-b border-slate-200 dark:border-slate-800">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
               {selectedClinic?.name ? selectedClinic.name : 'Κέντρο Ελέγχου'}
             </h1>
           </div>
@@ -177,18 +177,18 @@ export default function DashboardHome() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-sm transition-all cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all cursor-pointer"
           >
-            <PlusIcon className="w-4 h-4 stroke-[2.5]" /> Νέο Ραντεβού
+            <PlusIcon className="w-4 h-4 stroke-[2.5]" /> <span>Νέο Ραντεβού</span>
           </button>
         </div>
       </div>
 
       {/* Metric Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
+        <div className="p-4 sm:p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Σημερινά Ραντεβού
             </p>
             <div className="flex items-baseline gap-2 mt-1">
@@ -211,14 +211,14 @@ export default function DashboardHome() {
               )}
             </p>
           </div>
-          <div className="p-3.5 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-            <CalendarIcon className="w-6 h-6" />
+          <div className="p-3 sm:p-3.5 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">
+            <CalendarIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
-        <div className="p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+        <div className="p-4 sm:p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Εκκρεμή Callbacks
             </p>
             <div className="flex items-baseline gap-2 mt-1">
@@ -230,14 +230,14 @@ export default function DashboardHome() {
               {pendingCallbacks.length > 0 ? 'Απαιτείται επικοινωνία' : 'Όλα ολοκληρώθηκαν'}
             </p>
           </div>
-          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-2xl border border-amber-200 dark:border-amber-900/50">
-            <PhoneCallIcon className="w-6 h-6" />
+          <div className="p-3 sm:p-3.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 rounded-2xl border border-amber-200 dark:border-amber-900/50 shrink-0">
+            <PhoneCallIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
 
-        <div className="p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+        <div className="p-4 sm:p-5 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between sm:col-span-2 lg:col-span-1">
           <div>
-            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <p className="text-[11px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               Επείγοντα Αιτήματα
             </p>
             <div className="flex items-baseline gap-2 mt-1">
@@ -249,33 +249,33 @@ export default function DashboardHome() {
               Υψηλή προτεραιότητα
             </p>
           </div>
-          <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-2xl border border-rose-200 dark:border-rose-900/50">
-            <AlertTriangleIcon className="w-6 h-6" />
+          <div className="p-3 sm:p-3.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 rounded-2xl border border-rose-200 dark:border-rose-900/50 shrink-0">
+            <AlertTriangleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
         </div>
       </div>
 
       {/* Main Workspace Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         
         {/* Primary Schedule Section */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C]">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <ClockIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                Ημερήσιο Πρόγραμμα
+        <div className="lg:col-span-2 bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col">
+          <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C] rounded-t-2xl">
+            <div className="min-w-0 pr-2">
+              <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
+                <ClockIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Ημερήσιο Πρόγραμμα</span>
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                 {new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
-            <span className="inline-flex items-center rounded-lg bg-slate-200/70 dark:bg-slate-800 px-3 py-1 text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-slate-700">
+            <span className="inline-flex items-center rounded-xl bg-slate-200/70 dark:bg-slate-800 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-slate-700 dark:text-slate-300 border border-slate-300/60 dark:border-slate-700 shrink-0">
               {todayAppointments.length} Ραντεβού
             </span>
           </div>
 
-          <div className="p-5 flex-1">
+          <div className="p-3 sm:p-5 flex-1">
             {isApptsLoading ? (
               <div className="py-16 text-center text-xs text-slate-400 font-medium">
                 <div className="flex items-center justify-center gap-2">
@@ -284,7 +284,7 @@ export default function DashboardHome() {
                 </div>
               </div>
             ) : todayAppointments.length === 0 ? (
-              <div className="py-16 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+              <div className="py-16 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
                 <CalendarIcon className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Δεν υπάρχουν προγραμματισμένα ραντεβού για σήμερα.
@@ -301,39 +301,39 @@ export default function DashboardHome() {
                   return (
                     <div
                       key={appt.appointment_id || appt.id}
-                      className={`py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                      className={`py-3.5 sm:py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
                         isCancelled ? 'opacity-50' : ''
                       }`}
                     >
-                      <div className="flex items-center gap-3.5">
-                        <div className="w-20 py-2 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl text-center font-mono">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-16 sm:w-20 py-1.5 sm:py-2 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl text-center font-mono shrink-0">
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
                             {formatTime(appt.start_at)}
                           </span>
                         </div>
-                        <div>
-                          <p className={`text-xs sm:text-sm font-bold ${isCancelled ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                        <div className="min-w-0">
+                          <p className={`text-xs sm:text-sm font-bold truncate ${isCancelled ? 'line-through text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
                             {name}
                           </p>
                           <div className="flex items-center gap-2 mt-1 text-xs font-mono text-slate-500 dark:text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-                              {phone}
+                            <span className="flex items-center gap-1 truncate">
+                              <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">{phone}</span>
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 border-t sm:border-0 border-slate-100 dark:border-slate-800/80 pt-2 sm:pt-0">
+                        <span className="text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 truncate">
                           {label}
                         </span>
                         {isCancelled ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
+                          <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900 shrink-0">
                             <XCircleIcon className="w-3.5 h-3.5" /> Ακυρώθηκε
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900">
+                          <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 shrink-0">
                             <CheckCircle2Icon className="w-3.5 h-3.5" /> Επιβεβαιωμένο
                           </span>
                         )}
@@ -347,18 +347,18 @@ export default function DashboardHome() {
         </div>
 
         {/* Secondary Callbacks Section */}
-        <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C] rounded-t-2xl">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <PhoneCallIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Εκκρεμότητες Callbacks
+        <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col justify-between">
+          <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#0D121C] rounded-t-2xl">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <PhoneCallIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Εκκρεμότητες Callbacks</span>
             </h2>
-            <span className="text-xs bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700">
+            <span className="text-[11px] sm:text-xs bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold px-2.5 py-0.5 rounded-full border border-slate-300 dark:border-slate-700 shrink-0">
               {pendingCallbacks.length}
             </span>
           </div>
 
-          <div className="p-5 flex-1">
+          <div className="p-3 sm:p-5 flex-1">
             {isCallbacksLoading ? (
               <div className="py-16 text-center text-xs text-slate-400 font-medium">
                 <div className="flex items-center justify-center gap-2">
@@ -367,14 +367,14 @@ export default function DashboardHome() {
                 </div>
               </div>
             ) : pendingCallbacks.length === 0 ? (
-              <div className="py-12 text-center rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+              <div className="py-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
                 <CheckCircle2Icon className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-80" />
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   Καμία εκκρεμότητα επανάκλησης.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
                 {pendingCallbacks.map((cb: any, idx: number) => {
                   const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
                   const dateLabel = formatCallbackDate(cb.created_at);
@@ -397,16 +397,16 @@ export default function DashboardHome() {
                             {callerName}
                           </p>
                           {isUrgent && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-900 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0">
                               Επείγον
                             </span>
                           )}
                         </div>
-                        <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-1">
+                        <p className="text-xs font-mono text-slate-600 dark:text-slate-400 mt-1 truncate">
                           {phoneNum}
                         </p>
                         {dateLabel && (
-                          <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
+                          <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-0.5 truncate">
                             {dateLabel}
                           </p>
                         )}
@@ -424,22 +424,22 @@ export default function DashboardHome() {
       {/* Callback Details Modal */}
       {selectedCallback && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4 animate-in fade-in duration-200" 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" 
           role="dialog" 
           aria-modal="true"
           onClick={() => setSelectedCallback(null)}
         >
           <div 
-            className="bg-white dark:bg-[#101622] rounded-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4"
+            className="bg-white dark:bg-[#101622] rounded-3xl max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl p-5 sm:p-6 space-y-4 my-auto max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
                 Λεπτομέρειες Επανάκλησης
               </h3>
               <button
                 onClick={() => setSelectedCallback(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 aria-label="Κλείσιμο"
               >
                 ✕
@@ -462,7 +462,7 @@ export default function DashboardHome() {
               {selectedCallback.notes && (
                 <div>
                   <span className="text-slate-400 font-medium text-xs">Σημειώσεις:</span>
-                  <p className="font-medium text-slate-800 dark:text-slate-200 mt-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                  <p className="font-medium text-slate-800 dark:text-slate-200 mt-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs leading-relaxed break-words">
                     {selectedCallback.notes}
                   </p>
                 </div>
@@ -472,7 +472,7 @@ export default function DashboardHome() {
             <div className="pt-2 flex justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={() => setSelectedCallback(null)}
-                className="px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer text-center"
               >
                 Κλείσιμο
               </button>
@@ -486,7 +486,7 @@ export default function DashboardHome() {
         <CreateAppointmentModal
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
-            fetchAppointments(true);
+            fetchAppointments();
             setIsModalOpen(false);
           }}
         />

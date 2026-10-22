@@ -202,12 +202,12 @@ export default function CallbacksPage() {
 
   const renderSection = (items: any[], title: string, isEmergency = false) => {
     return (
-      <div className={`rounded-2xl border transition-all overflow-hidden bg-white dark:bg-[#101622] ${
+      <div className={`rounded-2xl sm:rounded-3xl border transition-all overflow-hidden bg-white dark:bg-[#101622] ${
         isEmergency 
           ? 'border-rose-300 dark:border-rose-900/60 shadow-md' 
           : 'border-slate-200 dark:border-slate-800 shadow-sm'
       }`}>
-        <div className={`px-4 sm:px-6 py-4 border-b flex items-center justify-between ${
+        <div className={`px-4 sm:px-6 py-4 border-b flex items-center justify-between gap-3 ${
           isEmergency 
             ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/40' 
             : 'bg-slate-50/80 dark:bg-[#0D121C] border-slate-100 dark:border-slate-800'
@@ -233,7 +233,7 @@ export default function CallbacksPage() {
           </span>
         </div>
 
-        <div className="p-3 sm:p-6 space-y-3.5">
+        <div className="p-3 sm:p-6 space-y-3.5 sm:space-y-4">
           {items.length === 0 ? (
             <div className="py-10 text-center text-slate-400 dark:text-slate-500 space-y-2">
               <InboxIcon className="w-8 h-8 mx-auto opacity-50" />
@@ -259,26 +259,26 @@ export default function CallbacksPage() {
                       : 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <button 
                         onClick={() => setSelectedCallback(cb)}
-                        className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 text-left cursor-pointer transition-colors"
+                        className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 text-left cursor-pointer transition-colors min-w-0"
                       >
                         <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span className="underline decoration-dotted underline-offset-4">{cb.caller_name || cb.patient_name || 'Άγνωστος Καλούν'}</span>
+                        <span className="underline decoration-dotted underline-offset-4 truncate">{cb.caller_name || cb.patient_name || 'Άγνωστος Καλούν'}</span>
                       </button>
 
                       <a
                         href={`tel:${phone}`}
-                        className="text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1.5 transition-colors"
+                        className="text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1.5 transition-colors shrink-0"
                       >
                         <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                         <span>{phone || '-'}</span>
                       </a>
                     </div>
 
-                    <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                    <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 flex items-center gap-1 shrink-0">
                       <ClockIcon className="w-3.5 h-3.5 shrink-0" />
                       <span>{formatDate(cb.created_at)}</span>
                     </span>
@@ -290,13 +290,13 @@ export default function CallbacksPage() {
                     </p>
 
                     {displayNote && (
-                      <p className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <p className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 break-words leading-relaxed">
                         <span className="font-bold text-slate-800 dark:text-slate-200">AI Περιγραφή / Σημείωση:</span> {displayNote}
                       </p>
                     )}
 
                     {staffNotes && (
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50">
+                      <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 break-words leading-relaxed">
                         <span className="font-bold">Σημείωση Προσωπικού:</span> {staffNotes}
                       </p>
                     )}
@@ -304,28 +304,28 @@ export default function CallbacksPage() {
 
                   <div className="flex flex-wrap items-center gap-1.5">
                     {isUrgent && (
-                      <span className="px-2 py-0.5 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 text-[11px] font-bold rounded-lg border border-rose-200 dark:border-rose-800 inline-flex items-center gap-1">
+                      <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 text-[11px] font-bold rounded-lg border border-rose-200 dark:border-rose-800 inline-flex items-center gap-1">
                         <ExclamationTriangleIcon className="w-3 h-3 text-rose-600" /> Επείγον
                       </span>
                     )}
                     {isUnacknowledged && (
-                      <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
+                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
                         <BellAlertIcon className="w-3 h-3 text-amber-600" /> Εκκρεμμεί
                       </span>
                     )}
                     {isFailedNotification && (
-                      <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
+                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
                         <XCircleIcon className="w-3 h-3 text-amber-600" /> Αποτυχία
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-200/60 dark:border-slate-800">
                     <button
                       onClick={() => setSelectedCallback(cb)}
                       className="px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-all shadow-xs cursor-pointer"
                     >
-                      <PencilSquareIcon className="w-4 h-4 text-emerald-600" />
+                      <PencilSquareIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Σημειώσεις & Κατάσταση</span>
                     </button>
 
@@ -336,7 +336,7 @@ export default function CallbacksPage() {
                         className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
                       >
                         {isItemUpdating ? (
-                          <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                          <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" />
                         ) : (
                           <CheckCircleIcon className="w-4 h-4 shrink-0" />
                         )}
@@ -346,9 +346,9 @@ export default function CallbacksPage() {
                       <button
                         disabled={isReadOnly || isItemUpdating}
                         onClick={() => handleStatusChangeQuick(cb, 'pending')}
-                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
                       >
-                        {isItemUpdating ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <span>Επαναφορά σε Εκκρεμές</span>}
+                        {isItemUpdating ? <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" /> : <span>Επαναφορά σε Εκκρεμές</span>}
                       </button>
                     )}
                   </div>
@@ -362,9 +362,10 @@ export default function CallbacksPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-slate-900 dark:text-slate-100 font-sans">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans">
       
-      <div className="bg-white dark:bg-[#101622] p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5">
+      {/* Header & Tabs */}
+      <div className="bg-white dark:bg-[#101622] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
             <PhoneIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -378,10 +379,10 @@ export default function CallbacksPage() {
           </p>
         </div>
 
-        <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold shrink-0 border border-slate-200 dark:border-slate-700">
+        <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold shrink-0 border border-slate-200 dark:border-slate-700 w-full md:w-auto">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer text-center ${
               activeTab === 'pending'
                 ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -392,7 +393,7 @@ export default function CallbacksPage() {
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer ${
+            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer text-center ${
               activeTab === 'completed'
                 ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -411,7 +412,7 @@ export default function CallbacksPage() {
       )}
 
       {activeTab === 'pending' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {emergencyCallbacks.length > 0 && 
             renderSection(emergencyCallbacks, 'Επείγοντα Αιτήματα Επικοινωνίας', true)
           }
@@ -423,23 +424,23 @@ export default function CallbacksPage() {
 
       {/* FULL CALLBACK MANAGEMENT MODAL WITH STAFF NOTES */}
       {selectedCallback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="bg-white dark:bg-[#101622] rounded-3xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-[#101622] rounded-3xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] my-auto">
             
             <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#0D121C]">
-              <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <ChatBubbleBottomCenterTextIcon className="w-5 h-5 text-emerald-600" />
-                  <span>Διαχείριση: {selectedCallback.caller_name || selectedCallback.patient_name || 'Ασθενής'}</span>
+              <div className="min-w-0 pr-2">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
+                  <ChatBubbleBottomCenterTextIcon className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span className="truncate">Διαχείριση: {selectedCallback.caller_name || selectedCallback.patient_name || 'Ασθενής'}</span>
                 </h3>
-                <p className="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1.5">
-                  <PhoneIcon className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{selectedCallback.phone_normalized || selectedCallback.phone}</span>
+                <p className="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1.5 truncate">
+                  <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">{selectedCallback.phone_normalized || selectedCallback.phone}</span>
                 </p>
               </div>
               <button 
                 onClick={() => setSelectedCallback(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer shrink-0"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -459,7 +460,7 @@ export default function CallbacksPage() {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                   Περιγραφή από AI Assistant (Read-only)
                 </label>
-                <div className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 min-h-[60px] whitespace-pre-wrap">
+                <div className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 min-h-[60px] whitespace-pre-wrap break-words">
                   {selectedCallback.notes || selectedCallback.work_summary || 'Δεν υπάρχουν διαθέσιμες σημειώσεις.'}
                 </div>
               </div>
@@ -467,7 +468,7 @@ export default function CallbacksPage() {
               {/* Editable Staff Notes Field (`staff_notes`) */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <DocumentTextIcon className="w-4 h-4 text-emerald-600" />
+                  <DocumentTextIcon className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Σημειώσεις Προσωπικού (Staff Notes)</span>
                 </label>
                 <textarea
@@ -500,16 +501,16 @@ export default function CallbacksPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedCallback(null)}
-                  className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
+                  className="px-4 py-3 sm:py-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
                 >
                   Ακύρωση
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingModal}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
+                  className="px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
                 >
-                  {isSubmittingModal && <ArrowPathIcon className="w-4 h-4 animate-spin" />}
+                  {isSubmittingModal && <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" />}
                   <span>Αποθήκευση Αλλαγών</span>
                 </button>
               </div>
