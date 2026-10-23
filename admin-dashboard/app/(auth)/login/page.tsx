@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCapsLockOn, setIsCapsLockOn] = useState(false);
 
   // Αν ο χρήστης είναι ήδη συνδεδεμένος, ανακατεύθυνση στο Dashboard
   useEffect(() => {
@@ -29,6 +30,19 @@ export default function LoginPage() {
       router.replace('/');
     }
   }, [router]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Ελέγχουμε αν το Caps Lock είναι ενεργό μέσω του getModifierState
+    if (e.getModifierState) {
+      setIsCapsLockOn(e.getModifierState('CapsLock'));
+    }
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.getModifierState) {
+      setIsCapsLockOn(e.getModifierState('CapsLock'));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +77,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-[100dvh] w-full bg-slate-50 dark:bg-[#090D16] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 overflow-y-auto text-slate-900 dark:text-slate-100 font-sans transition-colors">
+    <main className="min-h-dvh w-full bg-slate-50 dark:bg-[#090D16] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 overflow-y-auto text-slate-900 dark:text-slate-100 font-sans transition-colors">
       <div className="w-full max-w-sm sm:max-w-md my-auto bg-white dark:bg-[#101622] rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/40 dark:shadow-none p-5 sm:p-8 space-y-6 backdrop-blur-xs">
         
         {/* Header / Branding */}
@@ -126,6 +140,9 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onKeyUp={handleKeyUp}
+                onBlur={() => setIsCapsLockOn(false)}
                 placeholder="••••••••"
                 className="w-full h-12 pl-11 pr-11 bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-slate-100 font-medium focus:bg-white dark:focus:bg-slate-900 focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600 shadow-2xs"
               />
@@ -142,6 +159,13 @@ export default function LoginPage() {
                 )}
               </button>
             </div>
+            {/* Caps Lock Alert Banner */}
+            {isCapsLockOn && (
+              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 text-[11px] font-semibold pt-1 px-1 animate-in fade-in duration-150">
+                <ExclamationTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                <span>Το Caps Lock είναι ενεργό</span>
+              </div>
+            )}
           </div>
 
           <button

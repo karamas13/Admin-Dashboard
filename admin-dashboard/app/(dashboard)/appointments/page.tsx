@@ -299,27 +299,56 @@ export default function AppointmentsPage() {
   );
 
   const stats = useMemo(() => {
-    const activeToday = activeAppointments.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey)).length;
-    const workingSlotCount = dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length;
-    const openSlots = Math.max(0, workingSlotCount - activeToday);
-    const cancelledToday = appointmentsList.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey) && a.status === 'cancelled').length;
-    const rescheduledTotal = appointmentsList.filter((a: any) => a.status === 'rescheduled').length;
+    if (viewMode === 'day') {
+      const activeToday = activeAppointments.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey)).length;
+      const workingSlotCount = dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(currentDate, t)).length;
+      const openSlots = Math.max(0, workingSlotCount - activeToday);
+      const cancelledToday = appointmentsList.filter((a: any) => a.start_at && a.start_at.includes(dateStringKey) && a.status === 'cancelled').length;
+      const rescheduledTotal = appointmentsList.filter((a: any) => a.status === 'rescheduled').length;
 
-    return { activeToday, openSlots, cancelledToday, rescheduledTotal };
-  }, [activeAppointments, appointmentsList, currentDate, dateStringKey, dynamicTimeSlots, workingHours]);
+      return { activeToday, openSlots, cancelledToday, rescheduledTotal };
+    } else {
+      // Week view calculations across all 7 days of the week
+      const weekIsoStrings = new Set(daysOfWeek.map(d => d.isoString));
+      
+      const activeWeek = activeAppointments.filter((a: any) => {
+        if (!a.start_at) return false;
+        const aDateStr = a.start_at.split('T')[0];
+        return weekIsoStrings.has(aDateStr);
+      }).length;
+
+      let totalWorkingSlots = 0;
+      daysOfWeek.forEach(day => {
+        const slotsCount = dynamicTimeSlots.filter(t => isTimeWithinWorkingHours(day.dateObject, t)).length;
+        totalWorkingSlots += slotsCount;
+      });
+
+      const openSlots = Math.max(0, totalWorkingSlots - activeWeek);
+
+      const cancelledWeek = appointmentsList.filter((a: any) => {
+        if (!a.start_at || a.status !== 'cancelled') return false;
+        const aDateStr = a.start_at.split('T')[0];
+        return weekIsoStrings.has(aDateStr);
+      }).length;
+
+      const rescheduledTotal = appointmentsList.filter((a: any) => a.status === 'rescheduled').length;
+
+      return { activeToday: activeWeek, openSlots, cancelledToday: cancelledWeek, rescheduledTotal };
+    }
+  }, [viewMode, activeAppointments, appointmentsList, currentDate, dateStringKey, daysOfWeek, dynamicTimeSlots, workingHours]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 min-h-dvh text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
       
       {/* Header Toolbar */}
       <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 p-4 sm:p-5 shadow-sm space-y-4">
         
-        {/* Top Row: View Toggle, Navigation & New Appointment Button */}
+        {/* Top Row: View Toggle, Centralized Navigation & New Appointment Button */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
           
-          <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 sm:gap-3 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center justify-between sm:justify-start gap-3 w-full lg:w-auto">
             {/* Day / Week Switcher */}
-            <div className="inline-flex p-1 bg-slate-100 dark:bg-[#090D14] rounded-xl border border-slate-200 dark:border-slate-800/80">
+            <div className="inline-flex p-1 bg-slate-100 dark:bg-[#090D14] rounded-xl border border-slate-200 dark:border-slate-800/80 shrink-0">
               <button 
                 onClick={() => setViewMode('day')}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -342,43 +371,45 @@ export default function AppointmentsPage() {
               </button>
             </div>
 
-            {/* Date Navigation Controls */}
-            <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#090D14] overflow-hidden">
-              <button 
-                onClick={handlePrev}
-                className="p-2 sm:p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 border-r border-slate-200 dark:border-slate-800/80 transition-colors cursor-pointer"
-                aria-label="Προηγούμενη περίοδος"
-              >
-                <ChevronLeftIcon className="w-4 h-4 stroke-[2.5]" />
-              </button>
-              <button 
-                onClick={handleToday}
-                className="px-3 py-1.5 sm:px-3.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors border-r border-slate-200 dark:border-slate-800/80 cursor-pointer"
-              >
-                Σήμερα
-              </button>
-              <button 
-                onClick={handleNext}
-                className="p-2 sm:p-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
-                aria-label="Επόμενη περίοδος"
-              >
-                <ChevronRightIcon className="w-4 h-4 stroke-[2.5]" />
-              </button>
+            {/* Centralized Navigation Controls & Active Period Label */}
+            <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-[#090D14] p-1.5 rounded-xl border border-slate-200 dark:border-slate-800/80">
+              <div className="flex items-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#101622]">
+                <button 
+                  onClick={handlePrev}
+                  className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 border-r border-slate-200 dark:border-slate-800 transition-colors cursor-pointer"
+                  aria-label="Προηγούμενη περίοδος"
+                >
+                  <ChevronLeftIcon className="w-4 h-4 stroke-[2.5]" />
+                </button>
+                <button 
+                  onClick={handleToday}
+                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors border-r border-slate-200 dark:border-slate-800 cursor-pointer"
+                >
+                  Σήμερα
+                </button>
+                <button 
+                  onClick={handleNext}
+                  className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                  aria-label="Επόμενη περίοδος"
+                >
+                  <ChevronRightIcon className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
+
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 px-1">
+                <CalendarIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="capitalize truncate">
+                  {viewMode === 'day' 
+                    ? currentDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                    : `${daysOfWeek[0].formattedDate} — ${daysOfWeek[6].formattedDate}`
+                  }
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Active Period Label & New Appointment Button */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full lg:w-auto">
-            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2 px-1">
-              <CalendarIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="capitalize truncate">
-                {viewMode === 'day' 
-                  ? currentDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-                  : `${daysOfWeek[0].formattedDate} — ${daysOfWeek[6].formattedDate}`
-                }
-              </span>
-            </div>
-
+          {/* New Appointment Button */}
+          <div className="flex items-center w-full lg:w-auto justify-end">
             <button 
               onClick={() => handleOpenCreate()}
               className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
@@ -467,7 +498,7 @@ export default function AppointmentsPage() {
                   </span>
                 </div>
 
-                <div className="flex-1 p-2 sm:p-3 min-h-[52px] flex items-center">
+                <div className="flex-1 p-2 sm:p-3 min-h-13 flex items-center">
                   {appt ? (
                     <div 
                       onClick={() => setSelectedAppointment(appt)}
@@ -516,7 +547,7 @@ export default function AppointmentsPage() {
         </div>
       ) : (
         <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm dark:shadow-xl overflow-x-auto">
-          <div className="min-w-[750px]">
+          <div className="min-w-187.5">
             <div className="grid grid-cols-8 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D121C]">
               <div className="p-3 text-center text-xs font-semibold text-slate-500 dark:text-slate-500 border-r border-slate-200 dark:border-slate-800 sticky left-0 bg-slate-50 dark:bg-[#0D121C] z-10">
                 Ώρα
@@ -565,7 +596,7 @@ export default function AppointmentsPage() {
                         key={day.name} 
                         className={`p-1.5 min-h-16 border-r border-slate-100 dark:border-slate-800/80 last:border-0 flex items-center transition-colors ${
                           !isOpenSlot && !appt 
-                            ? 'bg-slate-50/50 dark:bg-[#090D14]/60' 
+                            ? 'bg-red-100 dark:bg-[#090D14]/60' 
                             : 'bg-white dark:bg-[#101622]'
                         }`}
                       >
@@ -606,7 +637,7 @@ export default function AppointmentsPage() {
           appointment={selectedAppointment} 
           onClose={() => setSelectedAppointment(null)} 
           onStateChange={() => loadAppointmentsForCurrentView(true)}
-        />        
+        />       
       )}
 
       {isCreateOpen && (

@@ -203,7 +203,7 @@ export default function BillingPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto min-h-[100dvh] text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση στοιχείων χρέωσης">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto min-h-dvh text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση στοιχείων χρέωσης">
         <div className="h-20 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl animate-pulse" />
         <div className="h-16 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -410,7 +410,7 @@ export default function BillingPage() {
           </div>
 
           <div className="pt-2">
-            <div className="flex items-end gap-3 min-h-[170px] pt-4 pb-2 px-1 overflow-x-auto">
+            <div className="flex items-end gap-3 min-h-42.5 pt-4 pb-2 px-1 overflow-x-auto">
               {periods.map((p, idx) => {
                 const uMin = p.used_minutes || 0;
                 const heightPct = Math.max(8, Math.round((uMin / maxPeriodMinutes) * 100));
@@ -418,7 +418,7 @@ export default function BillingPage() {
                 const endDateFormatted = formatDate(p.ends_at);
 
                 return (
-                  <div key={p.billing_period_id || idx} className="flex-1 min-w-[110px] sm:min-w-[120px] flex flex-col items-center gap-2 group">
+                  <div key={p.billing_period_id || idx} className="flex-1 min-w-27.5 sm:min-w-30 flex flex-col items-center gap-2 group">
                     <span className="text-[11px] font-bold font-mono text-slate-700 dark:text-slate-300">
                       {uMin.toFixed(1)}'
                     </span>
@@ -468,7 +468,7 @@ export default function BillingPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[650px]">
+            <table className="w-full text-left border-collapse min-w-162.5">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-[#0D121C] text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Περίοδος</th>

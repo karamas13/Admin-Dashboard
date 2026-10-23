@@ -298,7 +298,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-5xl mx-auto min-h-[100dvh] text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση ρυθμίσεων">
+      <div className="p-4 sm:p-6 space-y-6 animate-pulse max-w-5xl mx-auto min-h-dvh text-slate-900 dark:text-slate-100" role="status" aria-label="Φόρτωση ρυθμίσεων">
         <div className="h-20 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl" />
         <div className="h-12 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl" />
         <div className="h-64 bg-slate-200 dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl" />
@@ -307,7 +307,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto transition-colors duration-200 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto transition-colors duration-200 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-28 min-h-dvh text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
       
       {/* Page Leave / Route Navigation Warning Modal */}
       {showNavModal && (

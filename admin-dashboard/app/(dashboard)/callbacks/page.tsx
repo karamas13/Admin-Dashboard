@@ -5,7 +5,6 @@ import {
   PhoneIcon, 
   CheckCircleIcon, 
   ClockIcon, 
-  UserIcon,
   ExclamationTriangleIcon,
   BellAlertIcon,
   ArrowPathIcon,
@@ -50,9 +49,8 @@ export default function CallbacksPage() {
 
   const [localCallbacks, setLocalCallbacks] = useState<any[]>([]);
 
-  // States for Callback Management & Staff Notes Modal
+  // States for Staff Notes Modal
   const [selectedCallback, setSelectedCallback] = useState<any | null>(null);
-  const [modalStatus, setModalStatus] = useState<string>('pending');
   const [modalStaffNotes, setModalStaffNotes] = useState<string>('');
   const [isSubmittingModal, setIsSubmittingModal] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -71,7 +69,6 @@ export default function CallbacksPage() {
 
   useEffect(() => {
     if (selectedCallback) {
-      setModalStatus(selectedCallback.status || 'pending');
       setModalStaffNotes(selectedCallback.staff_notes || '');
       setSuccessMsg('');
     }
@@ -82,8 +79,8 @@ export default function CallbacksPage() {
     return st === 'completed' || st === 'resolved' || st === 'done' || st === 'closed';
   };
 
-  // Full Update via Modal (Supports status & staff_notes)
-  const handleUpdateCallbackFull = async (e: React.FormEvent) => {
+  // Save Staff Notes via Modal
+  const handleSaveStaffNotes = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCallback || isSubmittingModal) return;
 
@@ -95,25 +92,24 @@ export default function CallbacksPage() {
       setSuccessMsg('');
 
       const payload = {
-        status: modalStatus,
-        staff_notes: modalStaffNotes
+        notes: modalStaffNotes
       };
 
       await api.updateCallback(cbId, payload, selectedClinic?.id);
 
       setLocalCallbacks(prev => prev.map(cb => {
         const id = cb.callback_id || cb.id;
-        return id === cbId ? { ...cb, status: modalStatus, staff_notes: modalStaffNotes } : cb;
+        return id === cbId ? { ...cb, staff_notes: modalStaffNotes } : cb;
       }));
 
-      setSuccessMsg('Η ενημέρωση και οι σημειώσεις αποθηκεύτηκαν με επιτυχία!');
+      setSuccessMsg('Οι σημειώσεις αποθηκεύτηκαν με επιτυχία!');
       await fetchCallbacks(true);
 
       setTimeout(() => {
         setSelectedCallback(null);
-      }, 700);
+      }, 600);
     } catch (err: any) {
-      setError(err?.message || 'Αποτυχία ενημέρωσης κατάστασης.');
+      setError(err?.message || 'Αποτυχία αποθήκευσης σημειώσεων.');
     } finally {
       setIsSubmittingModal(false);
     }
@@ -191,7 +187,6 @@ export default function CallbacksPage() {
       return new Date(isoString).toLocaleString('el-GR', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
       });
@@ -202,29 +197,29 @@ export default function CallbacksPage() {
 
   const renderSection = (items: any[], title: string, isEmergency = false) => {
     return (
-      <div className={`rounded-2xl sm:rounded-3xl border transition-all overflow-hidden bg-white dark:bg-[#101622] ${
+      <div className={`rounded-2xl border overflow-hidden bg-white dark:bg-[#101622] ${
         isEmergency 
-          ? 'border-rose-300 dark:border-rose-900/60 shadow-md' 
-          : 'border-slate-200 dark:border-slate-800 shadow-sm'
+          ? 'border-rose-300 dark:border-rose-900/60 shadow-xs' 
+          : 'border-slate-200 dark:border-slate-800 shadow-xs'
       }`}>
-        <div className={`px-4 sm:px-6 py-4 border-b flex items-center justify-between gap-3 ${
+        <div className={`px-3 sm:px-4 py-3 border-b flex items-center justify-between gap-3 ${
           isEmergency 
             ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/40' 
             : 'bg-slate-50/80 dark:bg-[#0D121C] border-slate-100 dark:border-slate-800'
         }`}>
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             {isEmergency ? (
-              <ExclamationTriangleIcon className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+              <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             ) : (
-              <ClockIcon className="w-5 h-5 text-slate-500 dark:text-slate-400 shrink-0" />
+              <ClockIcon className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
             )}
-            <h2 className={`font-bold text-xs sm:text-sm uppercase tracking-wider truncate ${
+            <h2 className={`font-bold text-xs uppercase tracking-wider truncate ${
               isEmergency ? 'text-rose-900 dark:text-rose-300' : 'text-slate-800 dark:text-slate-200'
             }`}>
               {title}
             </h2>
           </div>
-          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
             isEmergency
               ? 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700'
               : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300/60 dark:border-slate-700'
@@ -233,11 +228,11 @@ export default function CallbacksPage() {
           </span>
         </div>
 
-        <div className="p-3 sm:p-6 space-y-3.5 sm:space-y-4">
+        <div className="p-2.5 sm:p-4 space-y-2.5 sm:space-y-3">
           {items.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 dark:text-slate-500 space-y-2">
-              <InboxIcon className="w-8 h-8 mx-auto opacity-50" />
-              <p className="text-xs sm:text-sm font-medium">Δεν βρέθηκαν διαθέσιμες εγγραφές.</p>
+            <div className="py-6 text-center text-slate-400 dark:text-slate-500 space-y-1">
+              <InboxIcon className="w-6 h-6 mx-auto opacity-50" />
+              <p className="text-xs font-medium">Δεν βρέθηκαν διαθέσιμες εγγραφές.</p>
             </div>
           ) : (
             items.map((cb: any) => {
@@ -253,103 +248,106 @@ export default function CallbacksPage() {
               return (
                 <div
                   key={cbId}
-                  className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col gap-3.5 ${
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all flex flex-col gap-2.5 ${
                     isUrgent && !isDone
                       ? 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50'
-                      : 'bg-slate-50/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                      : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/70 dark:border-slate-800/80 hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <button 
-                        onClick={() => setSelectedCallback(cb)}
-                        className="font-bold text-sm sm:text-base text-slate-900 dark:text-slate-100 hover:text-emerald-600 dark:hover:text-emerald-400 flex items-center gap-2 text-left cursor-pointer transition-colors min-w-0"
-                      >
-                        <UserIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span className="underline decoration-dotted underline-offset-4 truncate">{cb.caller_name || cb.patient_name || 'Άγνωστος Καλούν'}</span>
-                      </button>
+                  {/* Primary Info Row: Caller Name (Large), Phone (Quick Call), Date */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/60 pb-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                      <span className="font-bold text-base sm:text-lg text-slate-900 dark:text-slate-100 tracking-tight truncate">
+                        {cb.caller_name || cb.patient_name || 'Άγνωστος Καλούν'}
+                      </span>
 
                       <a
                         href={`tel:${phone}`}
-                        className="text-xs font-mono font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1.5 transition-colors shrink-0"
+                        className="text-xs sm:text-sm font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200/80 dark:border-emerald-800/60 inline-flex items-center gap-1.5 transition-colors shrink-0"
                       >
-                        <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <PhoneIcon className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                         <span>{phone || '-'}</span>
                       </a>
                     </div>
 
-                    <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 flex items-center gap-1 shrink-0">
-                      <ClockIcon className="w-3.5 h-3.5 shrink-0" />
-                      <span>{formatDate(cb.created_at)}</span>
-                    </span>
+                    <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                        <ClockIcon className="w-3 h-3 shrink-0" />
+                        <span>{formatDate(cb.created_at)}</span>
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <p className="text-xs sm:text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      {getReasonLabel(reason)}
-                    </p>
+                  {/* Secondary Details: Reason, Badges & Actions Inline */}
+                  <div className="space-y-1.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          {getReasonLabel(reason)}
+                        </span>
+
+                        {isUrgent && (
+                          <span className="px-1.5 py-0.5 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 text-[10px] font-bold rounded-md border border-rose-200 dark:border-rose-800 inline-flex items-center gap-1 shrink-0">
+                            <ExclamationTriangleIcon className="w-3 h-3 text-rose-600" /> Επείγον
+                          </span>
+                        )}
+                        {isUnacknowledged && (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[10px] font-bold rounded-md border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1 shrink-0">
+                            <BellAlertIcon className="w-3 h-3 text-amber-600" /> Εκκρεμμεί
+                          </span>
+                        )}
+                        {isFailedNotification && (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[10px] font-bold rounded-md border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1 shrink-0">
+                            <XCircleIcon className="w-3 h-3 text-amber-600" /> Αποτυχία
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Actions inline */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setSelectedCallback(cb)}
+                          className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+                        >
+                          <PencilSquareIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>Σημειώσεις</span>
+                        </button>
+
+                        {!isDone ? (
+                          <button
+                            disabled={isReadOnly || isItemUpdating}
+                            onClick={() => handleStatusChangeQuick(cb, 'completed')}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 disabled:opacity-40 transition-all cursor-pointer shadow-xs"
+                          >
+                            {isItemUpdating ? (
+                              <ArrowPathIcon className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            ) : (
+                              <CheckCircleIcon className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                            <span>Ολοκλήρωση</span>
+                          </button>
+                        ) : (
+                          <button
+                            disabled={isReadOnly || isItemUpdating}
+                            onClick={() => handleStatusChangeQuick(cb, 'pending')}
+                            className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+                          >
+                            {isItemUpdating ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin shrink-0" /> : <span>Επαναφορά</span>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
                     {displayNote && (
-                      <p className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 break-words leading-relaxed">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">AI Περιγραφή / Σημείωση:</span> {displayNote}
+                      <p className="text-xs text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900/80 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800 break-words leading-relaxed">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">AI Σημείωση:</span> {displayNote}
                       </p>
                     )}
 
                     {staffNotes && (
-                      <p className="text-xs text-emerald-700 dark:text-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/30 p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 break-words leading-relaxed">
+                      <p className="text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-200/60 dark:border-emerald-900/40 break-words leading-relaxed">
                         <span className="font-bold">Σημείωση Προσωπικού:</span> {staffNotes}
                       </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {isUrgent && (
-                      <span className="px-2.5 py-1 bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 text-[11px] font-bold rounded-lg border border-rose-200 dark:border-rose-800 inline-flex items-center gap-1">
-                        <ExclamationTriangleIcon className="w-3 h-3 text-rose-600" /> Επείγον
-                      </span>
-                    )}
-                    {isUnacknowledged && (
-                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
-                        <BellAlertIcon className="w-3 h-3 text-amber-600" /> Εκκρεμμεί
-                      </span>
-                    )}
-                    {isFailedNotification && (
-                      <span className="px-2.5 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 text-[11px] font-bold rounded-lg border border-amber-200 dark:border-amber-800 inline-flex items-center gap-1">
-                        <XCircleIcon className="w-3 h-3 text-amber-600" /> Αποτυχία
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-slate-200/60 dark:border-slate-800">
-                    <button
-                      onClick={() => setSelectedCallback(cb)}
-                      className="px-4 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-all shadow-xs cursor-pointer"
-                    >
-                      <PencilSquareIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Σημειώσεις & Κατάσταση</span>
-                    </button>
-
-                    {!isDone ? (
-                      <button
-                        disabled={isReadOnly || isItemUpdating}
-                        onClick={() => handleStatusChangeQuick(cb, 'completed')}
-                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
-                      >
-                        {isItemUpdating ? (
-                          <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" />
-                        ) : (
-                          <CheckCircleIcon className="w-4 h-4 shrink-0" />
-                        )}
-                        <span>Ολοκλήρωση</span>
-                      </button>
-                    ) : (
-                      <button
-                        disabled={isReadOnly || isItemUpdating}
-                        onClick={() => handleStatusChangeQuick(cb, 'pending')}
-                        className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
-                      >
-                        {isItemUpdating ? <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" /> : <span>Επαναφορά σε Εκκρεμές</span>}
-                      </button>
                     )}
                   </div>
                 </div>
@@ -362,27 +360,27 @@ export default function CallbacksPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans">
+    <div className="space-y-4 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 min-h-dvh text-slate-900 dark:text-slate-100 font-sans">
       
       {/* Header & Tabs */}
-      <div className="bg-white dark:bg-[#101622] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <PhoneIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+      <div className="bg-white dark:bg-[#101622] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="min-w-0 pr-1">
+          <div className="flex items-center gap-2">
+            <PhoneIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <h1 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-snug">
               Αιτήματα Επικοινωνίας & Επανακλήσεων
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Διαχείριση εκκρεμών κλήσεων και αιτημάτων επικοινωνίας για την κλινική{' '}
-            <span className="font-bold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 truncate">
+            Διαχείριση εκκρεμών κλήσεων για την κλινική{' '}
+            <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
           </p>
         </div>
 
-        <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl text-xs font-semibold shrink-0 border border-slate-200 dark:border-slate-700 w-full md:w-auto">
+        <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs font-semibold shrink-0 border border-slate-200 dark:border-slate-700 w-full lg:w-auto">
           <button
             onClick={() => setActiveTab('pending')}
-            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer text-center ${
+            className={`flex-1 lg:flex-none px-3 sm:px-4 py-2.5 rounded-lg transition-all cursor-pointer text-center truncate min-w-0 ${
               activeTab === 'pending'
                 ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -393,7 +391,7 @@ export default function CallbacksPage() {
 
           <button
             onClick={() => setActiveTab('completed')}
-            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl transition-all cursor-pointer text-center ${
+            className={`flex-1 lg:flex-none px-3 sm:px-4 py-2.5 rounded-lg transition-all cursor-pointer text-center truncate min-w-0 ${
               activeTab === 'completed'
                 ? 'bg-white dark:bg-[#101622] text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
@@ -405,16 +403,16 @@ export default function CallbacksPage() {
       </div>
 
       {(error || callbacksError) && (
-        <div className="p-4 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-2xl flex items-center gap-2 font-semibold">
-          <ExclamationTriangleIcon className="w-5 h-5 shrink-0" />
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2 font-semibold">
+          <ExclamationTriangleIcon className="w-4 h-4 shrink-0" />
           <span>{error || callbacksError}</span>
         </div>
       )}
 
       {activeTab === 'pending' && (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-4">
           {emergencyCallbacks.length > 0 && 
-            renderSection(emergencyCallbacks, 'Επείγοντα Αιτήματα Επικοινωνίας', true)
+            renderSection(emergencyCallbacks, 'Επείγοντα Αιτήματα', true)
           }
           {renderSection(pendingCallbacks, 'Εκκρεμή Αιτήματα')}
         </div>
@@ -422,96 +420,80 @@ export default function CallbacksPage() {
 
       {activeTab === 'completed' && renderSection(completedCallbacks, 'Ολοκληρωμένα Αιτήματα')}
 
-      {/* FULL CALLBACK MANAGEMENT MODAL WITH STAFF NOTES */}
+      {/* MINIMAL STAFF NOTES MODAL */}
       {selectedCallback && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-[#101622] rounded-3xl border border-slate-200 dark:border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] my-auto">
+          <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] my-auto">
             
-            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#0D121C]">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-[#0D121C]">
               <div className="min-w-0 pr-2">
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
-                  <ChatBubbleBottomCenterTextIcon className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span className="truncate">Διαχείριση: {selectedCallback.caller_name || selectedCallback.patient_name || 'Ασθενής'}</span>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 truncate">
+                  <ChatBubbleBottomCenterTextIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">{selectedCallback.caller_name || selectedCallback.patient_name || 'Ασθενής'}</span>
                 </h3>
-                <p className="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1.5 truncate">
+                <p className="text-xs font-mono text-slate-500 mt-0.5 flex items-center gap-1.5 truncate">
                   <PhoneIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span className="truncate">{selectedCallback.phone_normalized || selectedCallback.phone}</span>
                 </p>
               </div>
               <button 
                 onClick={() => setSelectedCallback(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer shrink-0"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 cursor-pointer shrink-0"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
             {successMsg && (
-              <div className="mx-4 sm:mx-6 mt-4 p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2 border border-emerald-200 dark:border-emerald-800">
+              <div className="mx-4 mt-3 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs flex items-center gap-2 border border-emerald-200 dark:border-emerald-800">
                 <CheckCircleIcon className="w-4 h-4 shrink-0" />
                 <span>{successMsg}</span>
               </div>
             )}
 
-            <form onSubmit={handleUpdateCallbackFull} className="p-4 sm:p-6 flex-1 overflow-y-auto space-y-4">
+            <form onSubmit={handleSaveStaffNotes} className="p-4 flex-1 overflow-y-auto space-y-3">
               
               {/* Read-Only AI Work Summary / Notes */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Περιγραφή από AI Assistant (Read-only)
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Περιγραφή από AI Assistant
                 </label>
-                <div className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 min-h-[60px] whitespace-pre-wrap break-words">
+                <div className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed">
                   {selectedCallback.notes || selectedCallback.work_summary || 'Δεν υπάρχουν διαθέσιμες σημειώσεις.'}
                 </div>
               </div>
 
               {/* Editable Staff Notes Field (`staff_notes`) */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <DocumentTextIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Σημειώσεις Προσωπικού (Staff Notes)</span>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                  <DocumentTextIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Σημειώσεις Προσωπικού</span>
                 </label>
                 <textarea
                   value={modalStaffNotes}
                   onChange={(e) => setModalStaffNotes(e.target.value)}
                   rows={3}
                   maxLength={4000}
-                  placeholder="Προσθέστε σχόλια ή ενέργειες προσωπικού εδώ..."
-                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"
+                  placeholder="Προσθέστε σχόλια ή ενέργειες προσωπικού..."
+                  className="w-full p-3 text-xs bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none"
                 />
               </div>
 
-              {/* Status Selector */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                  Κατάσταση Αιτήματος (Status)
-                </label>
-                <select
-                  value={modalStatus}
-                  onChange={(e) => setModalStatus(e.target.value)}
-                  className="w-full h-11 px-3.5 text-xs font-medium rounded-2xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="pending">Σε εκκρεμότητα (Pending)</option>
-                  <option value="created">Δημιουργήθηκε / Εκκρεμεί (Created)</option>
-                  <option value="completed">Ολοκληρώθηκε (Completed)</option>
-                </select>
-              </div>
-
-              <div className="pt-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
+              <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setSelectedCallback(null)}
-                  className="px-4 py-3 sm:py-2.5 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
+                  className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Ακύρωση
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingModal}
-                  className="px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40 transition-all shadow-sm cursor-pointer"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 transition-all shadow-xs cursor-pointer"
                 >
-                  {isSubmittingModal && <ArrowPathIcon className="w-4 h-4 animate-spin shrink-0" />}
-                  <span>Αποθήκευση Αλλαγών</span>
+                  {isSubmittingModal && <ArrowPathIcon className="w-3.5 h-3.5 animate-spin shrink-0" />}
+                  <span>Αποθήκευση</span>
                 </button>
               </div>
 

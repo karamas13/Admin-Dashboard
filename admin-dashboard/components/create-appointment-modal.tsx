@@ -418,7 +418,7 @@ export default function CreateAppointmentModal({
             </div>
 
             {nextBestSlot && parsedBestSlotDate && (
-              <div className="pt-2 border-t border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-900/30 p-3 rounded-xl border border-amber-700/50">
+              <div className="pt-2 border-t border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-900/30 p-3 rounded-xl border">
                 <div>
                   <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full inline-block mb-1">
                     Προτεινόμενο Slot

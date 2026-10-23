@@ -159,7 +159,7 @@ export default function DashboardHome() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-[100dvh] text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 min-h-dvh text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30">
       
       {/* Top Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 sm:pb-5 border-b border-slate-200 dark:border-slate-800">
@@ -374,7 +374,7 @@ export default function DashboardHome() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-105 overflow-y-auto pr-1">
                 {pendingCallbacks.map((cb: any, idx: number) => {
                   const isUrgent = cb.urgency_code && cb.urgency_code !== 'normal';
                   const dateLabel = formatCallbackDate(cb.created_at);
@@ -462,7 +462,7 @@ export default function DashboardHome() {
               {selectedCallback.notes && (
                 <div>
                   <span className="text-slate-400 font-medium text-xs">Σημειώσεις:</span>
-                  <p className="font-medium text-slate-800 dark:text-slate-200 mt-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs leading-relaxed break-words">
+                  <p className="font-medium text-slate-800 dark:text-slate-200 mt-1 p-3 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs leading-relaxed wrap-break-word">
                     {selectedCallback.notes}
                   </p>
                 </div>

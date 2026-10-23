@@ -168,7 +168,7 @@ export default function ScheduleExceptionsPage() {
         const endJ = toMinutes(slots[j].end);
 
         if (Math.max(startI, startJ) < Math.min(endI, endJ)) {
-          return 'Τα χρονικά διαστήματα (σπαστό ωράριο) δεν επιτρέπεται να επικαλύπτονται.';
+          return 'Τα χρονικά διαστήματα δεν επιτρέπεται να επικαλύπτονται.';
         }
       }
     }
@@ -201,7 +201,7 @@ export default function ScheduleExceptionsPage() {
       await api.updateSettings(payload, selectedClinic?.id);
       await fetchSettingsRef.current(true);
       setInitialWorkingHours(workingHours);
-      setSuccessMsg('Το εβδομαδιαίο σπαστό ωράριο αποθηκεύτηκε με επιτυχία!');
+      setSuccessMsg('Το εβδομαδιαίο ωράριο αποθηκεύτηκε με επιτυχία!');
     } catch (err: any) {
       console.error('Error saving weekly hours:', err);
       setErrorMsg(err?.message || 'Αποτυχία αποθήκευσης ωραρίου.');
@@ -310,24 +310,17 @@ export default function ScheduleExceptionsPage() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500/30 pb-28">
+    <div className="space-y-4 max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-5 text-slate-900 dark:text-slate-100 font-sans pb-24">
       
       {showNavModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 my-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-[#101622] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl space-y-3">
             <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3 text-amber-600 dark:text-amber-500 min-w-0 pr-2">
-                <div className="p-2 bg-amber-50 dark:bg-amber-950/50 rounded-xl shrink-0">
-                  <ExclamationTriangleIcon className="w-5 h-5" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
-                    Αποχώρηση από τη σελίδα
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    Υπάρχουν μη αποθηκευμένες αλλαγές.
-                  </p>
-                </div>
+              <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-500 min-w-0 pr-2">
+                <ExclamationTriangleIcon className="w-5 h-5 shrink-0" />
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                  Μη αποθηκευμένες αλλαγές
+                </h3>
               </div>
               <button
                 type="button"
@@ -335,28 +328,28 @@ export default function ScheduleExceptionsPage() {
                 className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer shrink-0"
                 aria-label="Κλείσιμο"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-[#0D121C] p-3 rounded-xl border border-slate-200/60 dark:border-slate-800">
-              Εάν αποχωρήσετε τώρα, οι τροποποιήσεις που πραγματοποιήσατε στο εβδομαδιαίο ωράριο θα ακυρωθούν.
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              Εάν αποχωρήσετε τώρα, οι τροποποιήσεις στο εβδομαδιαίο ωράριο θα χαθούν.
             </p>
 
-            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={cancelNavigation}
-                className="px-4 py-2.5 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer text-center"
+                className="px-3 py-1.5 rounded-xl text-[11px] font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 cursor-pointer"
               >
                 Παραμονή
               </button>
               <button
                 type="button"
                 onClick={confirmNavigation}
-                className="px-4 py-2.5 rounded-xl text-xs font-medium bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer text-center"
+                className="px-3 py-1.5 rounded-xl text-[11px] font-medium bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
               >
-                Αποχώρηση χωρίς αποθήκευση
+                Αποχώρηση
               </button>
             </div>
           </div>
@@ -364,64 +357,56 @@ export default function ScheduleExceptionsPage() {
       )}
 
       {/* Header Toolbar */}
-      <div className="bg-white dark:bg-[#101622] p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
+      <div className="bg-white dark:bg-[#101622] p-3.5 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
               Διαχείριση Ωραρίου & Εξαιρέσεων
             </h1>
-            {isLoading && (
-              <ArrowPathIcon className="w-4 h-4 text-emerald-500 animate-spin shrink-0" />
-            )}
+            {isLoading && <ArrowPathIcon className="w-3.5 h-3.5 text-emerald-500 animate-spin shrink-0" />}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Ρύθμιση τακτικού εβδομαδιαίου προγράμματος (συμπεριλαμβανομένου μόνιμου σπαστού ωραρίου) και διαχείριση απουσιών ή έκτακτων αργιών για την επιχείρηση{' '}
-            <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>.
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+            Κλινική: <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedClinic?.name}</span>
           </p>
         </div>
       </div>
 
       {successMsg && (
-        <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs rounded-2xl flex items-center gap-2.5" role="status">
-          <CheckCircleIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs rounded-xl flex items-center gap-2" role="status">
+          <CheckCircleIcon className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="p-4 bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs rounded-2xl flex items-center gap-2.5" role="alert">
-          <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+        <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs rounded-xl flex items-center gap-2" role="alert">
+          <ExclamationTriangleIcon className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* SECTION 1: WEEKLY HOURS (ΜΟΝΙΜΟ ΣΠΑΣΤΟ ΩΡΑΡΙΟ) */}
-      <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0D121C]">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <ClockIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div className="min-w-0">
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">
-                1. Τακτικό Εβδομαδιαίο & Σπαστό Ωράριο
-              </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                Ορισμός ημερών και πολλαπλών χρονικών διαστημάτων λειτουργίας.
-              </p>
-            </div>
+      {/* SECTION 1: WEEKLY HOURS (REDESIGNED INLINE BOXES) */}
+      <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-2xs overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0D121C]">
+          <div className="flex items-center gap-2 min-w-0">
+            <ClockIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <h2 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider truncate">
+              1. Τακτικό Εβδομαδιαίο Ωράριο
+            </h2>
           </div>
 
           <button
             type="button"
             disabled={isSavingHours || isActionDisabled}
             onClick={handleSaveWeeklyHours}
-            className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:opacity-50 ${
+            className={`w-full sm:w-auto px-3.5 py-1.5 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 ${
               isDirty
-                ? 'bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                ? 'bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 shadow-2xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
             }`}
           >
             {isSavingHours ? (
               <>
-                <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
                 <span>Αποθήκευση...</span>
               </>
             ) : (
@@ -430,7 +415,7 @@ export default function ScheduleExceptionsPage() {
           </button>
         </div>
 
-        <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
+        <div className="p-3 sm:p-4 space-y-2">
           {DAYS_OF_WEEK.map((day) => {
             const slots = workingHours[day.id] || [];
             const isOpen = slots.length > 0;
@@ -438,14 +423,17 @@ export default function ScheduleExceptionsPage() {
             return (
               <div
                 key={day.id}
-                className={`p-3.5 rounded-2xl border transition-all space-y-3 ${
+                className={`p-2.5 sm:p-3 rounded-xl border transition-all ${
                   isOpen
                     ? 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800/80'
                     : 'bg-white dark:bg-[#101622] border-slate-100 dark:border-slate-800/50'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                {/* Single Compact Flow Container */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  
+                  {/* Left Controls: Checkbox & Day Name & Status Badge */}
+                  <div className="flex items-center gap-2 shrink-0 pr-1">
                     <input
                       type="checkbox"
                       id={`day_check_${day.id}`}
@@ -458,7 +446,7 @@ export default function ScheduleExceptionsPage() {
                       }}
                       className="w-4 h-4 text-emerald-600 rounded border-slate-300 dark:border-slate-700 dark:bg-slate-800 cursor-pointer focus:ring-emerald-500 shrink-0"
                     />
-                    <label htmlFor={`day_check_${day.id}`} className="font-semibold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-24">
+                    <label htmlFor={`day_check_${day.id}`} className="font-bold text-xs text-slate-800 dark:text-slate-200 cursor-pointer select-none min-w-16">
                       {day.label}
                     </label>
                     <span
@@ -468,133 +456,125 @@ export default function ScheduleExceptionsPage() {
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                       }`}
                     >
-                      {isOpen ? `${slots.length} ${slots.length === 1 ? 'Διάστημα' : 'Διαστήματα'}` : 'Εκτός λειτουργίας'}
+                      {isOpen ? `${slots.length} ${slots.length === 1 ? 'Διάστημα' : 'Διαστήματα'}` : 'Κλειστά'}
                     </span>
                   </div>
 
-                  {isOpen && !isActionDisabled && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = { ...workingHours };
-                        updated[day.id] = [...slots, { start: '17:00', end: '19:00' }];
-                        setWorkingHours(updated);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer self-start sm:self-auto"
-                    >
-                      <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Προσθήκη διαστήματος</span>
-                    </button>
-                  )}
-                </div>
-
-                {isOpen ? (
-                  <div className="space-y-2.5 pl-0 sm:pl-7 pt-1">
-                    {slots.map((slot, index) => (
-                      <div key={index} className="flex items-center gap-2 text-xs font-medium flex-wrap">
-                        <span className="text-slate-400 text-[11px] font-mono">#{index + 1}</span>
-                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">Από:</span>
-                        <select
-                          value={slot.start}
-                          disabled={isActionDisabled}
-                          onChange={(e) => {
-                            const updated = { ...workingHours };
-                            const newSlots = [...slots];
-                            newSlots[index] = { ...newSlots[index], start: e.target.value };
-                            updated[day.id] = newSlots;
-                            setWorkingHours(updated);
-                          }}
-                          className="px-2.5 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
-                        >
-                          {TIME_OPTIONS.map((time) => (
-                            <option key={time} value={time}>{time}</option>
-                          ))}
-                        </select>
-
-                        <span className="text-slate-500 dark:text-slate-400 text-[11px] px-1">έως:</span>
-
-                        <select
-                          value={slot.end}
-                          disabled={isActionDisabled}
-                          onChange={(e) => {
-                            const updated = { ...workingHours };
-                            const newSlots = [...slots];
-                            newSlots[index] = { ...newSlots[index], end: e.target.value };
-                            updated[day.id] = newSlots;
-                            setWorkingHours(updated);
-                          }}
-                          className="px-2.5 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-medium outline-none cursor-pointer hover:border-emerald-500 focus:border-emerald-500 transition-colors"
-                        >
-                          {TIME_OPTIONS.map((time) => (
-                            <option key={time} value={time}>{time}</option>
-                          ))}
-                        </select>
-
-                        {slots.length > 1 && !isActionDisabled && (
-                          <button
-                            type="button"
-                            onClick={() => {
+                  {/* Middle / Right: Time Slots Dropdowns Inline */}
+                  {isOpen ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {slots.map((slot, index) => (
+                        <div key={index} className="flex items-center gap-1.5 bg-white dark:bg-slate-900/90 p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-medium shrink-0">
+                          <span className="text-slate-400 text-[10px] font-mono">#{index + 1}</span>
+                          <span className="text-slate-400 text-[10px]">Από:</span>
+                          <select
+                            value={slot.start}
+                            disabled={isActionDisabled}
+                            onChange={(e) => {
                               const updated = { ...workingHours };
-                              updated[day.id] = slots.filter((_, i) => i !== index);
+                              const newSlots = [...slots];
+                              newSlots[index] = { ...newSlots[index], start: e.target.value };
+                              updated[day.id] = newSlots;
                               setWorkingHours(updated);
                             }}
-                            className="p-2 text-slate-400 hover:text-rose-600 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer ml-1"
-                            title="Διαγραφή διαστήματος"
-                            aria-label="Διαγραφή διαστήματος"
+                            className="px-1.5 py-1 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-semibold outline-none cursor-pointer hover:border-emerald-500"
                           >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-slate-400 dark:text-slate-500 text-xs pl-0 sm:pl-7 block">
-                    Κλειστά
-                  </span>
-                )}
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={time} value={time}>{time}</option>
+                            ))}
+                          </select>
+
+                          <span className="text-slate-400 text-[10px]">έως:</span>
+
+                          <select
+                            value={slot.end}
+                            disabled={isActionDisabled}
+                            onChange={(e) => {
+                              const updated = { ...workingHours };
+                              const newSlots = [...slots];
+                              newSlots[index] = { ...newSlots[index], end: e.target.value };
+                              updated[day.id] = newSlots;
+                              setWorkingHours(updated);
+                            }}
+                            className="px-1.5 py-1 border border-slate-200 dark:border-slate-700 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-semibold outline-none cursor-pointer hover:border-emerald-500"
+                          >
+                            {TIME_OPTIONS.map((time) => (
+                              <option key={time} value={time}>{time}</option>
+                            ))}
+                          </select>
+
+                          {slots.length > 1 && !isActionDisabled && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = { ...workingHours };
+                                updated[day.id] = slots.filter((_, i) => i !== index);
+                                setWorkingHours(updated);
+                              }}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="Διαγραφή διαστήματος"
+                              aria-label="Διαγραφή διαστήματος"
+                            >
+                              <TrashIcon className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Add Slot Button inline next to slots */}
+                      {!isActionDisabled && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = { ...workingHours };
+                            updated[day.id] = [...slots, { start: '17:00', end: '19:00' }];
+                            setWorkingHours(updated);
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/20 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer shrink-0"
+                        >
+                          <PlusIcon className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>Προσθήκη διαστήματος</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+
+                </div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* SECTION 2: SCHEDULE EXCEPTIONS */}
-      <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs dark:shadow-xl overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0D121C]">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <CalendarDaysIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            <div className="min-w-0">
-              <h2 className="font-bold text-slate-900 dark:text-slate-100 text-sm truncate">
-                2. {showHistory ? 'Ιστορικό Εξαιρέσεων' : 'Τρέχουσες & Επερχόμενες Εξαιρέσεις'} ({filteredExceptions.length})
-              </h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                {showHistory
-                  ? 'Προβολή παλαιότερων εξαιρέσεων και αργιών.'
-                  : 'Διαχείριση ενεργών απουσιών ή έκτακτων ωρών.'}
-              </p>
-            </div>
+      {/* SECTION 2: EXCEPTIONS */}
+      <div className="bg-white dark:bg-[#101622] rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-2xs overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-slate-200 dark:border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-[#0D121C]">
+          <div className="flex items-center gap-2 min-w-0">
+            <CalendarDaysIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <h2 className="font-bold text-slate-900 dark:text-slate-100 text-xs uppercase tracking-wider truncate">
+              2. {showHistory ? 'Ιστορικό Εξαιρέσεων' : 'Εξαιρέσεις & Αργίες'} ({filteredExceptions.length})
+            </h2>
           </div>
 
           <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-start">
             <button
               onClick={toggleHistory}
-              className={`flex-1 sm:flex-initial px-3.5 py-2.5 sm:py-1.5 font-semibold text-xs rounded-xl border transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-3 py-1.5 font-semibold text-xs rounded-xl border transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                 showHistory
-                  ? 'bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100'
-                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 border-slate-300'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
               }`}
             >
-              <ArchiveBoxIcon className="w-4 h-4 shrink-0" />
+              <ArchiveBoxIcon className="w-3.5 h-3.5 shrink-0" />
               <span>{showHistory ? 'Ενεργές' : 'Ιστορικό'}</span>
             </button>
 
             <button
               onClick={() => setIsAddModalOpen(true)}
               disabled={isActionDisabled}
-              className="flex-1 sm:flex-initial px-4 py-2.5 sm:py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              className="flex-1 sm:flex-initial px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-slate-950 font-semibold text-xs rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
             >
-              <PlusIcon className="w-4 h-4 shrink-0 stroke-[2.5]" />
+              <PlusIcon className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
               <span>Νέα Εξαίρεση</span>
             </button>
           </div>
@@ -602,22 +582,22 @@ export default function ScheduleExceptionsPage() {
 
         {/* Desktop Table View */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs min-w-[650px]">
-            <thead className="bg-slate-50/80 dark:bg-[#0D121C] text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800/80 uppercase text-[11px] tracking-wider">
+          <table className="w-full text-left border-collapse text-xs min-w-150">
+            <thead className="bg-slate-50/80 dark:bg-[#0D121C] text-slate-500 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800/80 uppercase text-[10px] tracking-wider">
               <tr>
-                <th className="p-3.5">Κατάσταση</th>
-                <th className="p-3.5">Αιτιολογία</th>
-                <th className="p-3.5">Διάρκεια</th>
-                <th className="p-3.5 text-right">Ενέργειες</th>
+                <th className="p-3">Κατάσταση</th>
+                <th className="p-3">Αιτιολογία</th>
+                <th className="p-3">Διάρκεια</th>
+                <th className="p-3 text-right">Ενέργειες</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
               {isLoading && filteredExceptions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500 font-medium">
+                  <td colSpan={4} className="p-6 text-center text-slate-400">
                     <div className="flex items-center justify-center gap-2">
                       <ArrowPathIcon className="w-4 h-4 animate-spin text-slate-500" />
-                      <span>Φόρτωση δεδομένων...</span>
+                      <span>Φόρτωση...</span>
                     </div>
                   </td>
                 </tr>
@@ -625,50 +605,37 @@ export default function ScheduleExceptionsPage() {
                 filteredExceptions.map((item) => {
                   const itemId = item.schedule_exception_id || item.id || '';
                   const isClosedEffect = item.availability_effect === 'closed';
-                  const isPast = new Date(item.ends_at) < new Date(new Date().setHours(0, 0, 0, 0));
 
                   return (
-                    <tr 
-                      key={itemId} 
-                      className={`hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
-                        isPast ? 'opacity-60' : ''
-                      }`}
-                    >
-                      <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2.5 py-1 font-semibold text-[11px] rounded-lg border ${
-                              isClosedEffect
-                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
-                                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/50'
-                            }`}
-                          >
-                            {isClosedEffect ? 'Κλειστό' : 'Έκτακτο Ωράριο'}
-                          </span>
-                          {isPast && (
-                            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                              Ολοκληρώθηκε
-                            </span>
-                          )}
-                        </div>
+                    <tr key={itemId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                      <td className="p-3 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-0.5 font-semibold text-[10px] rounded-md border ${
+                            isClosedEffect
+                              ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/50'
+                              : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/50'
+                          }`}
+                        >
+                          {isClosedEffect ? 'Κλειστό' : 'Έκτακτο'}
+                        </span>
                       </td>
-                      <td className="p-3.5 font-semibold text-slate-900 dark:text-slate-100">
+                      <td className="p-3 font-bold text-slate-900 dark:text-slate-100">
                         {getReasonLabel(item.reason_code)}
-                        {item.note && <p className="text-[11px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">{item.note}</p>}
+                        {item.note && <p className="text-[10px] font-normal text-slate-500 mt-0.5">{item.note}</p>}
                       </td>
-                      <td className="p-3.5 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap">{formatDateRange(item)}</td>
-                      <td className="p-3.5 text-right whitespace-nowrap">
+                      <td className="p-3 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap text-[11px]">{formatDateRange(item)}</td>
+                      <td className="p-3 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleDeleteException(itemId)}
                           disabled={isDeleting === itemId || isActionDisabled}
-                          className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-40"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-40"
                           title="Διαγραφή"
                           aria-label="Διαγραφή εξαίρεσης"
                         >
                           {isDeleting === itemId ? (
-                            <ArrowPathIcon className="w-4 h-4 animate-spin text-rose-500" />
+                            <ArrowPathIcon className="w-3.5 h-3.5 animate-spin text-rose-500" />
                           ) : (
-                            <TrashIcon className="w-4 h-4" />
+                            <TrashIcon className="w-3.5 h-3.5" />
                           )}
                         </button>
                       </td>
@@ -677,8 +644,8 @@ export default function ScheduleExceptionsPage() {
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-slate-400 dark:text-slate-500 font-medium">
-                    {showHistory ? 'Δεν υπάρχουν παλαιότερες εξαιρέσεις στο ιστορικό.' : 'Δεν υπάρχουν ενεργές ή επερχόμενες εξαιρέσεις.'}
+                  <td colSpan={4} className="p-6 text-center text-slate-400 text-xs">
+                    Δεν βρέθηκαν εγγραφές.
                   </td>
                 </tr>
               )}
@@ -687,58 +654,56 @@ export default function ScheduleExceptionsPage() {
         </div>
 
         {/* Mobile Cards View */}
-        <div className="md:hidden p-3 sm:p-4 space-y-3">
+        <div className="md:hidden p-3 space-y-2.5">
           {isLoading && filteredExceptions.length === 0 ? (
-            <div className="p-6 text-center text-slate-400 text-xs">Φόρτωση...</div>
+            <div className="p-4 text-center text-slate-400 text-xs">Φόρτωση...</div>
           ) : filteredExceptions.length > 0 ? (
             filteredExceptions.map((item) => {
               const itemId = item.schedule_exception_id || item.id || '';
               const isClosedEffect = item.availability_effect === 'closed';
 
               return (
-                <div key={itemId} className="p-4 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-2xl space-y-2.5">
+                <div key={itemId} className="p-3 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                   <div className="flex justify-between items-center gap-2">
                     <span
-                      className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg border ${
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded border ${
                         isClosedEffect
                           ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900'
                           : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900'
                       }`}
                     >
-                      {isClosedEffect ? 'Κλειστό' : 'Έκτακτο Ωράριο'}
+                      {isClosedEffect ? 'Κλειστό' : 'Έκτακτο'}
                     </span>
                     <button
                       onClick={() => handleDeleteException(itemId)}
                       disabled={isDeleting === itemId || isActionDisabled}
-                      className="p-2 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                      aria-label="Διαγραφή εξαίρεσης"
+                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                      aria-label="Διαγραφή"
                     >
-                      <TrashIcon className="w-4 h-4" />
+                      <TrashIcon className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <div className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-slate-100">{getReasonLabel(item.reason_code)}</div>
-                  {item.note && <div className="text-xs text-slate-500">{item.note}</div>}
-                  <div className="text-[11px] font-mono text-slate-500 flex items-center gap-1.5 pt-1 border-t border-slate-200/60 dark:border-slate-800">
-                    <CalendarIcon className="w-3.5 h-3.5 shrink-0" />
+                  <div className="font-bold text-xs text-slate-900 dark:text-slate-100">{getReasonLabel(item.reason_code)}</div>
+                  {item.note && <div className="text-[11px] text-slate-500">{item.note}</div>}
+                  <div className="text-[10px] font-mono text-slate-500 flex items-center gap-1 pt-1 border-t border-slate-200/60 dark:border-slate-800">
+                    <CalendarIcon className="w-3 h-3 shrink-0" />
                     <span>{formatDateRange(item)}</span>
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="p-6 text-center text-slate-400 text-xs">
-              {showHistory ? 'Δεν υπάρχουν παλαιότερες εξαιρέσεις στο ιστορικό.' : 'Δεν υπάρχουν ενεργές ή επερχόμενες εξαιρέσεις.'}
-            </div>
+            <div className="p-4 text-center text-slate-400 text-xs">Δεν βρέθηκαν εγγραφές.</div>
           )}
         </div>
       </div>
 
       {isDirty && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-lg bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
-          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+        <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1rem)] max-w-md bg-slate-900 text-white p-3 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
             <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
             <p className="text-xs font-semibold text-slate-200 truncate">
-              Υπάρχουν μη αποθηκευμένες αλλαγές στο ωράριο
+              Μη αποθηκευμένες αλλαγές στο ωράριο
             </p>
           </div>
 
@@ -746,72 +711,54 @@ export default function ScheduleExceptionsPage() {
             type="button"
             disabled={isSavingHours || isActionDisabled}
             onClick={handleSaveWeeklyHours}
-            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shrink-0 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+            className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shrink-0 disabled:opacity-50 cursor-pointer"
           >
-            {isSavingHours ? (
-              <>
-                <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" />
-                <span>Αποθήκευση...</span>
-              </>
-            ) : (
-              <span>Αποθήκευση</span>
-            )}
+            {isSavingHours ? 'Αποθήκευση...' : 'Αποθήκευση'}
           </button>
         </div>
       )}
 
       {/* ADD EXCEPTION MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 rounded-3xl max-w-xl w-full p-5 sm:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-auto max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in duration-200" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-[#101622] text-slate-900 dark:text-slate-100 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 my-auto max-h-[90vh] overflow-y-auto">
             
-            <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800/80 pb-4">
-              <div className="min-w-0 pr-2">
-                <h3 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 truncate">
-                  <CalendarDaysIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="truncate">Προσθήκη Νέας Εξαίρεσης</span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                  Επιλέξτε πώς θέλετε να επηρεαστεί το πρόγραμμα της επιχείρησης.
-                </p>
-              </div>
+            <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-3">
+              <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+                <CalendarDaysIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Νέα Εξαίρεση / Αργία</span>
+              </h3>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 cursor-pointer"
                 aria-label="Κλείσιμο"
               >
-                <XMarkIcon className="w-5 h-5" />
+                <XMarkIcon className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateException} className="space-y-4">
+            <form onSubmit={handleCreateException} className="space-y-3.5">
               
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  1. Τι θα συμβεί αυτές τις ημέρες;
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Είδος επίδρασης
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       setAvailabilityEffect('closed');
                       setReasonCode('holiday');
                     }}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                       availabilityEffect === 'closed'
-                        ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 shadow-xs ring-2 ring-rose-500/20'
-                        : 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                        ? 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 font-bold'
+                        : 'bg-slate-50 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="font-bold text-xs sm:text-sm">Κλειστό / Αργία</span>
-                      <NoSymbolIcon className="w-4 h-4 text-rose-500 shrink-0" />
-                    </div>
-                    <p className="text-[11px] opacity-80 leading-snug">
-                      Δεν θα είναι δυνατή η κράτηση ραντεβού (π.χ. αργίες, άδεια).
-                    </p>
+                    <span className="text-xs">Κλειστό</span>
+                    <NoSymbolIcon className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   </button>
 
                   <button
@@ -820,142 +767,116 @@ export default function ScheduleExceptionsPage() {
                       setAvailabilityEffect('open');
                       setReasonCode('extra_hours');
                     }}
-                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
                       availabilityEffect === 'open'
-                        ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 shadow-xs ring-2 ring-emerald-500/20'
-                        : 'bg-slate-50/60 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                        ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-bold'
+                        : 'bg-slate-50 dark:bg-[#0D121C] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="font-bold text-xs sm:text-sm">Έκτακτο Ωράριο</span>
-                      <SparklesIcon className="w-4 h-4 text-emerald-500 shrink-0" />
-                    </div>
-                    <p className="text-[11px] opacity-80 leading-snug">
-                      Ανοιχτά σε ώρες εκτός του κανονικού προγράμματος.
-                    </p>
+                    <span className="text-xs">Έκτακτο</span>
+                    <SparklesIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   </button>
-
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  2. Αιτιολογία
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Αιτιολογία
                 </label>
                 <select
                   value={reasonCode}
                   onChange={(e) => setReasonCode(e.target.value)}
-                  className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full h-10 px-3 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 outline-none"
                 >
                   {availabilityEffect === 'closed' ? (
                     <>
                       <option value="holiday">Επίσημη Αργία</option>
                       <option value="vacation">Διακοπές / Άδεια</option>
-                      <option value="personal">Προσωπικός Λόγος / Απουσία</option>
+                      <option value="personal">Προσωπικός Λόγος</option>
                       <option value="staff_absence">Απουσία Προσωπικού</option>
                       <option value="closed">Γενικό Κλείσιμο</option>
                       <option value="other">Άλλο</option>
                     </>
                   ) : (
                     <>
-                      <option value="extra_hours">Έκτακτες Ώρες Λειτουργίας</option>
+                      <option value="extra_hours">Έκτακτες Ώρες</option>
                       <option value="other">Άλλο</option>
                     </>
                   )}
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  3. Χρονικό Διάστημα
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Ημερομηνίες
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium text-slate-500">Από ημερομηνία</span>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => {
-                        setStartDate(e.target.value);
-                        if (!endDate) setEndDate(e.target.value);
-                      }}
-                      required
-                      className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium text-slate-500">Έως ημερομηνία</span>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      required
-                      className="w-full h-11 px-3.5 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 transition-colors"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (!endDate) setEndDate(e.target.value);
+                    }}
+                    required
+                    className="w-full h-10 px-3 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+                  />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    required
+                    className="w-full h-10 px-3 text-xs font-semibold rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 outline-none"
+                  />
                 </div>
               </div>
 
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    4. Διάρκεια Ημέρας
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Χρονικό διάστημα ημέρας
                   </span>
-                  
                   <button
                     type="button"
                     onClick={() => setIsAllDay(!isAllDay)}
-                    className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
-                    {isAllDay ? 'Αλλαγή σε συγκεκριμένες ώρες' : '📅 Ολόκληρη ημέρα'}
+                    {isAllDay ? 'Συγκεκριμένες ώρες' : 'Ολόκληρη ημέρα'}
                   </button>
                 </div>
 
-                {isAllDay ? (
-                  <div className="p-3 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                    <ClockIcon className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span>Η εξαίρεση θα ισχύει για <strong>ολόκληρη την ημέρα / μέρες</strong>.</span>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-500">Ώρα Έναρξης</span>
-                      <select
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500"
-                      >
-                        {TIME_OPTIONS.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-slate-500">Ώρα Λήξης</span>
-                      <select
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
-                        className="w-full h-10 px-3 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500"
-                      >
-                        {TIME_OPTIONS.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                    </div>
+                {!isAllDay && (
+                  <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <select
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="w-full h-9 px-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-full h-9 px-2 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none"
+                    >
+                      {TIME_OPTIONS.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <button
                   type="button"
                   onClick={() => setShowNoteField(!showNoteField)}
-                  className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1.5 cursor-pointer"
+                  className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 flex items-center gap-1 cursor-pointer"
                 >
-                  <ChatBubbleBottomCenterTextIcon className="w-4 h-4 text-emerald-500" />
-                  <span>{showNoteField ? 'Απόκρυψη σημείωσης' : '+ Προσθήκη εσωτερικής σημείωσης'}</span>
+                  <ChatBubbleBottomCenterTextIcon className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>{showNoteField ? 'Απόκρυψη σημείωσης' : '+ Σημείωση'}</span>
                 </button>
 
                 {showNoteField && (
@@ -963,17 +884,17 @@ export default function ScheduleExceptionsPage() {
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={2}
-                    placeholder="π.χ. Κλειστά λόγω τεχνικών εργασιών..."
-                    className="w-full px-3.5 py-2.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 resize-none transition-colors"
+                    placeholder="Προαιρετική σημείωση..."
+                    className="w-full p-2.5 text-xs font-medium rounded-xl bg-slate-50 dark:bg-[#0D121C] border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 outline-none resize-none"
                   />
                 )}
               </div>
 
-              <div className="pt-3 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-3 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-center"
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 cursor-pointer"
                 >
                   Ακύρωση
                 </button>
@@ -981,16 +902,9 @@ export default function ScheduleExceptionsPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                      <span>Αποθήκευση...</span>
-                    </>
-                  ) : (
-                    <span>Δημιουργία Εξαίρεσης</span>
-                  )}
+                  {isSubmitting ? 'Αποθήκευση...' : 'Δημιουργία'}
                 </button>
               </div>
 
